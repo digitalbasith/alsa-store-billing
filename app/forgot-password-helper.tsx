@@ -1,31 +1,32 @@
 "use client";
 
 import { useEffect } from "react";
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDoJZkKsXrwG7d7QsYBQhdO7IfGcOG8gws",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "alsa-store-billing.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "alsa-store-billing",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "alsa-store-billing.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "918214002690",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:918214002690:web:588127c30be3946574bf1b",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-ZGP48F4W4X",
-};
+const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDoJZkKsXrwG7d7QsYBQhdO7IfGcOG8gws";
 
-function getClientAuth() {
-  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-  return getAuth(app);
+async function sendResetEmail(email: string) {
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requestType: "PASSWORD_RESET", email }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const code = result?.error?.message || "RESET_FAILED";
+    if (code === "EMAIL_NOT_FOUND") throw new Error("இந்த email account-la illa. Correct email ID type pannunga.");
+    if (code === "INVALID_EMAIL") throw new Error("Email ID correct-a type pannunga.");
+    throw new Error(`Password reset failed: ${code}`);
+  }
+  return result;
 }
 
 export function ForgotPasswordHelper() {
   useEffect(() => {
     const injectResetButton = () => {
-      if (document.getElementById("alsa-forgot-password-button")) return;
+      const existing = document.getElementById("alsa-forgot-password-button");
       const emailInput = document.querySelector<HTMLInputElement>('input[type="email"], input[name="email"]');
       const passwordInput = document.querySelector<HTMLInputElement>('input[type="password"]');
-      if (!emailInput || !passwordInput) return;
+      if (existing || !emailInput || !passwordInput) return;
       const container = passwordInput.closest("label") || passwordInput.parentElement;
       if (!container?.parentElement) return;
 
@@ -54,6 +55,9 @@ export function ForgotPasswordHelper() {
 
       button.addEventListener("click", async () => {
         const email = emailInput.value.trim();
+        const oldPermissionError = Array.from(document.querySelectorAll("p,div,span"))
+          .find((node) => node.textContent?.trim() === "Missing or insufficient permissions.");
+        if (oldPermissionError) oldPermissionError.textContent = "";
         if (!email) {
           status.textContent = "Email ID type pannunga.";
           status.style.color = "#b42318";
@@ -62,7 +66,7 @@ export function ForgotPasswordHelper() {
         button.textContent = "Sending reset email...";
         button.setAttribute("disabled", "true");
         try {
-          await sendPasswordResetEmail(getClientAuth(), email);
+          await sendResetEmail(email);
           status.textContent = `Reset link sent to ${email}. Gmail inbox/spam check pannunga.`;
           status.style.color = "#177245";
           button.textContent = "Reset email sent";
