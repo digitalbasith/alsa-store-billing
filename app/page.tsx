@@ -456,6 +456,39 @@ export default function Home() {
     popup.document.close();
   };
 
+  const deleteProducts = async (productIds: string[]) => {
+    const uniqueIds = Array.from(new Set(productIds)).filter(Boolean);
+    if (!uniqueIds.length) return;
+    if (cloudStatus !== "live" || !storeId) {
+      setAuthMode("signin");
+      setAuthOpen(true);
+      notify("Sign in to delete products");
+      return;
+    }
+    const selectedProducts = products.filter((product) => uniqueIds.includes(product.id));
+    const label = selectedProducts.length === 1 ? `“${selectedProducts[0].name}”` : `${selectedProducts.length} products`;
+    if (!window.confirm(`Delete ${label}? They will be removed from the active catalogue, while existing sales and purchase history will stay intact.`)) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ active: false })
+        .eq("store_id", storeId)
+        .in("id", uniqueIds);
+      if (error) throw error;
+      if (editingProduct && uniqueIds.includes(editingProduct.id)) setEditingProduct(null);
+      await loadProductsFromCloud(storeId);
+      notify(`${uniqueIds.length} product${uniqueIds.length === 1 ? "" : "s"} deleted`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Products could not be deleted");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const saveEditedProduct = async (formData: FormData) => {
     if (!editingProduct || !storeId) return;
     const supabase = getSupabaseBrowserClient();
@@ -651,7 +684,7 @@ export default function Home() {
         </aside>
       </div>}
       {section === "dashboard" && <Dashboard language={language} products={products} sales={sales} live={cloudStatus === "live"} profit={profitSummary} onStartSale={() => setSection("billing")} />}
-      {section === "products" && <ProductsView products={products} query={query} setQuery={setQuery} onImport={() => fileRef.current?.click()} onExport={exportProducts} onAdd={() => openLiveAction("product")} onEdit={setEditingProduct} />}
+      {section === "products" && <ProductsView products={products} query={query} setQuery={setQuery} onImport={() => fileRef.current?.click()} onExport={exportProducts} onAdd={() => openLiveAction("product")} onEdit={setEditingProduct} onDelete={deleteProducts} deleteBusy={actionBusy} />}
       {enterpriseModule && <EnterpriseSuite
         module={enterpriseModule}
         language={language}
@@ -738,9 +771,27 @@ function EditProductModal({ product, busy, error, onClose, onSubmit }: { product
   </form></section></div>;
 }
 
-function ProductsView({ products, query, setQuery, onImport, onExport, onAdd, onEdit }: { products: Product[]; query: string; setQuery: (value: string) => void; onImport: () => void; onExport: () => void; onAdd: () => void; onEdit: (product: Product) => void }) {
+function ProductsView({ products, query, setQuery, onImport, onExport, onAdd, onEdit, onDelete, deleteBusy }: { products: Product[]; query: string; setQuery: (value: string) => void; onImport: () => void; onExport: () => void; onAdd: () => void; onEdit: (product: Product) => void; onDelete: (productIds: string[]) => Promise<void>; deleteBusy: boolean }) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const visible = products.filter((p) => `${p.name} ${p.tamil} ${p.barcode}`.toLowerCase().includes(query.toLowerCase()));
-  return <div className="content-view"><ViewHeader eyebrow="MASTER CATALOGUE" title="Product management" description={`${products.length} active products`} actions={<><button className="outline-button" onClick={onImport}><Upload size={17} /> Upload Excel</button><button className="outline-button" onClick={onExport}><Download size={17} /> Export</button><button className="primary-button" onClick={onAdd}><Plus size={17} /> Add product</button></>} /><div className="data-toolbar"><label className="table-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or barcode..." /></label><span className="toolbar-spacer" /><button className="icon-button"><RefreshCcw size={17} /></button></div><div className="data-table product-table simplified"><div className="table-row table-head-row"><span>Product</span><span>Barcode</span><span>Category</span><span>Price</span><span>Stock</span><span>GST</span><span>Status</span><span>Action</span></div>{visible.map((p) => <div className="table-row" key={p.id}><span className="table-product"><span><strong>{p.name}</strong>{p.tamil && <small>{p.tamil}</small>}</span></span><span>{p.barcode || "—"}</span><span>{p.category || "General"}</span><span><strong>{currency(p.price)}</strong><small>MRP {currency(p.mrp)}</small></span><span><strong>{Math.round(p.stock)}</strong></span><span>{p.gst ? `${p.gst}%` : "—"}</span><span><Badge tone={p.stock <= 12 ? "orange" : "green"}>{p.stock <= 12 ? "Low stock" : "Active"}</Badge></span><span><button className="outline-button edit-product-button" onClick={() => onEdit(p)}>Edit</button></span></div>)}</div><div className="table-footer"><span>Showing {visible.length} of {products.length} products</span></div></div>;
+  const visibleIds = visible.map((product) => product.id);
+  const selectedVisibleCount = visibleIds.filter((id) => selectedIds.includes(id)).length;
+  const allVisibleSelected = visible.length > 0 && selectedVisibleCount === visible.length;
+  useEffect(() => { setSelectedIds((current) => current.filter((id) => products.some((product) => product.id === id))); }, [products]);
+  const toggleProduct = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  const toggleAllVisible = () => setSelectedIds((current) => {
+    if (allVisibleSelected) return current.filter((id) => !visibleIds.includes(id));
+    return Array.from(new Set([...current, ...visibleIds]));
+  });
+  const deleteSelected = async () => {
+    const ids = selectedIds.filter((id) => products.some((product) => product.id === id));
+    if (!ids.length) return;
+    await onDelete(ids);
+  };
+  const deleteOne = async (id: string) => {
+    await onDelete([id]);
+  };
+  return <div className="content-view"><ViewHeader eyebrow="MASTER CATALOGUE" title="Product management" description={`${products.length} active products`} actions={<><button className="outline-button" onClick={onImport}><Upload size={17} /> Upload Excel</button><button className="outline-button" onClick={onExport}><Download size={17} /> Export</button><button className="primary-button" onClick={onAdd}><Plus size={17} /> Add product</button></>} /><div className="data-toolbar"><label className="table-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or barcode..." /></label>{selectedIds.length > 0 && <><span className="bulk-selection-count">{selectedIds.length} selected</span><button className="outline-button danger-button" onClick={deleteSelected} disabled={deleteBusy}><Trash2 size={16} /> {deleteBusy ? "Deleting…" : `Delete selected (${selectedIds.length})`}</button></>}<span className="toolbar-spacer" /><button className="icon-button" onClick={() => setQuery("")} title="Clear search"><RefreshCcw size={17} /></button></div><div className="data-table product-table simplified selectable"><div className="table-row table-head-row"><span><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} aria-label="Select all visible products" /></span><span>Product</span><span>Barcode</span><span>Category</span><span>Price</span><span>Stock</span><span>GST</span><span>Status</span><span>Action</span></div>{visible.map((p) => <div className={`table-row ${selectedIds.includes(p.id) ? "selected-product-row" : ""}`} key={p.id}><span><input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleProduct(p.id)} aria-label={`Select ${p.name}`} /></span><span className="table-product"><span><strong>{p.name}</strong>{p.tamil && <small>{p.tamil}</small>}</span></span><span>{p.barcode || "—"}</span><span>{p.category || "General"}</span><span><strong>{currency(p.price)}</strong><small>MRP {currency(p.mrp)}</small></span><span><strong>{Math.round(p.stock)}</strong></span><span>{p.gst ? `${p.gst}%` : "—"}</span><span><Badge tone={p.stock <= 12 ? "orange" : "green"}>{p.stock <= 12 ? "Low stock" : "Active"}</Badge></span><span className="product-actions"><button className="outline-button edit-product-button" onClick={() => onEdit(p)} disabled={deleteBusy}>Edit</button><button className="icon-button delete-product-button" onClick={() => void deleteOne(p.id)} disabled={deleteBusy} title={`Delete ${p.name}`} aria-label={`Delete ${p.name}`}><Trash2 size={16} /></button></span></div>)}</div><div className="table-footer"><span>Showing {visible.length} of {products.length} products{selectedIds.length ? ` · ${selectedIds.length} selected` : ""}</span>{visible.length > 0 && <button className={`table-select-all-button ${allVisibleSelected ? "active" : ""}`} onClick={toggleAllVisible}>{allVisibleSelected ? "Clear" : "Select all"}</button>}</div></div>;
 }
 
 /* eslint-disable @typescript-eslint/no-unused-vars -- retained as a rollback-safe legacy presentation while enterprise modules are rolled out */
