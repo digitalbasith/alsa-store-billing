@@ -29,3 +29,7 @@ npx next build
 ```
 
 Vercel configuration is included in `vercel.json`.
+
+## Deployment
+
+Production is configured for the Alsa Store Billing Vercel project. Pushes to `main` are intended to trigger production builds through the repository integration.
