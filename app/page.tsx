@@ -24,7 +24,6 @@ import {
   where,
   type Firestore,
 } from "firebase/firestore";
-import { Barcode, LogOut, PackagePlus, ReceiptIndianRupee, Trash2 } from "lucide-react";
 
 type Product = {
   id: string;
@@ -75,6 +74,86 @@ function timestampMs(value: unknown) {
     return (value as { toMillis: () => number }).toMillis();
   }
   return 0;
+}
+
+function AppStyles() {
+  return <style>{`
+    :root { color-scheme: light; }
+    html, body { margin: 0 !important; background: #eef2f8 !important; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
+    button, input { font: inherit; box-sizing: border-box; }
+    .fb-page { min-height: 100vh; padding: 18px; background: linear-gradient(135deg, #f7f9ff 0%, #edf2fb 100%); color: #172033; }
+    .fb-auth-wrap { min-height: 100vh; display: grid; place-items: start center; padding-top: 42px; }
+    .fb-auth-card { width: min(100%, 430px); padding: 22px; border-radius: 24px; background: #ffffff; box-shadow: 0 24px 70px rgba(23, 32, 51, .14); border: 1px solid #e5e9f3; }
+    .fb-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .fb-mark { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 16px; background: linear-gradient(135deg, #3153c6, #6d7cff); color: #fff; font-weight: 900; letter-spacing: .05em; flex: 0 0 auto; }
+    .fb-brand p { margin: 0 0 3px; color: #64708a; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .fb-brand h1 { margin: 0; font-size: 24px; line-height: 1.1; letter-spacing: -.04em; }
+    .fb-warning { margin: 0 0 18px; padding: 11px 12px; border-radius: 14px; background: #eef7ff; color: #275581; font-size: 13px; line-height: 1.45; }
+    .fb-form { display: grid; gap: 12px; }
+    .fb-label { display: grid; gap: 6px; color: #4b566c; font-size: 12px; font-weight: 800; }
+    .fb-input { width: 100%; height: 46px; padding: 0 13px; border-radius: 13px; border: 1px solid #dce2ef; background: #f9fbff; color: #172033; outline: none; }
+    .fb-input:focus { border-color: #3153c6; box-shadow: 0 0 0 4px rgba(49, 83, 198, .1); background: #fff; }
+    .fb-primary { min-height: 47px; border: 0; border-radius: 14px; background: linear-gradient(135deg, #3153c6, #263f9e); color: #fff; font-weight: 900; cursor: pointer; box-shadow: 0 14px 24px rgba(49,83,198,.22); }
+    .fb-primary:disabled { opacity: .65; cursor: wait; }
+    .fb-link { margin-top: 12px; width: 100%; min-height: 42px; border: 0; background: transparent; color: #3153c6; font-weight: 850; cursor: pointer; }
+    .fb-error { margin: 0; color: #b4233b; font-weight: 800; font-size: 12px; }
+    .fb-top { max-width: 1180px; margin: 0 auto 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-radius: 22px; background: #fff; border: 1px solid #e5e9f3; box-shadow: 0 14px 38px rgba(23,32,51,.08); }
+    .fb-signout { height: 42px; padding: 0 14px; border-radius: 13px; border: 1px solid #dce2ef; background: #fff; color: #172033; font-weight: 850; cursor: pointer; }
+    .fb-grid { max-width: 1180px; margin: 0 auto 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .fb-metric { padding: 15px; border-radius: 18px; background: #fff; border: 1px solid #e5e9f3; box-shadow: 0 10px 28px rgba(23,32,51,.06); }
+    .fb-metric span { display: block; color: #64708a; font-size: 12px; font-weight: 800; margin-bottom: 6px; }
+    .fb-metric strong { font-size: 22px; letter-spacing: -.04em; }
+    .fb-message { max-width: 1180px; margin: 0 auto 18px; padding: 12px 14px; border-radius: 15px; background: #eaf9f3; color: #126b4b; font-weight: 800; }
+    .fb-layout { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(320px, .88fr); gap: 14px; align-items: start; }
+    .fb-panel { padding: 16px; border-radius: 22px; background: #fff; border: 1px solid #e5e9f3; box-shadow: 0 14px 34px rgba(23,32,51,.07); min-width: 0; }
+    .fb-panel h2 { margin: 0 0 14px; font-size: 18px; letter-spacing: -.03em; }
+    .fb-product-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .fb-product-form .wide { grid-column: 1 / -1; }
+    .fb-product-form button { grid-column: 1 / -1; }
+    .fb-search { width: 100%; margin-bottom: 10px; }
+    .fb-list { display: grid; gap: 8px; max-height: 520px; overflow: auto; padding-right: 2px; }
+    .fb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 38px; align-items: center; gap: 10px; padding: 10px; border-radius: 15px; background: #f8faff; border: 1px solid #edf1f8; }
+    .fb-row-main { min-width: 0; border: 0; background: transparent; text-align: left; cursor: pointer; padding: 0; }
+    .fb-row-main strong, .fb-row-main span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .fb-row-main strong { font-size: 14px; }
+    .fb-row-main span { margin-top: 3px; color: #64708a; font-size: 12px; }
+    .fb-price, .fb-stock { font-weight: 850; white-space: nowrap; font-size: 13px; }
+    .fb-stock { color: #64708a; }
+    .fb-danger { width: 36px; height: 36px; border-radius: 12px; border: 1px solid #ffd2da; background: #fff5f7; color: #bc2842; font-weight: 900; cursor: pointer; }
+    .fb-cart { position: sticky; top: 14px; }
+    .fb-cart-lines { display: grid; gap: 8px; }
+    .fb-cart-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 9px; border-radius: 14px; background: #f8faff; border: 1px solid #edf1f8; }
+    .fb-cart-line > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+    .fb-qty { display: inline-flex; align-items: center; gap: 7px; }
+    .fb-qty button { width: 28px; height: 28px; border-radius: 9px; border: 1px solid #dce2ef; background: #fff; font-weight: 900; }
+    .fb-total { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #edf1f8; color: #64708a; font-weight: 850; }
+    .fb-total.grand { color: #172033; font-size: 20px; }
+    .fb-empty { margin: 10px 0 0; color: #7b8498; font-size: 13px; }
+    .fb-sales { margin-top: 14px; }
+    .fb-sale-line { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #edf1f8; font-size: 13px; }
+    @media (max-width: 780px) {
+      .fb-page { padding: 12px; }
+      .fb-auth-wrap { place-items: start stretch; padding-top: 14px; }
+      .fb-auth-card { width: 100%; border-radius: 20px; padding: 18px; }
+      .fb-top { align-items: flex-start; border-radius: 18px; }
+      .fb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .fb-layout { grid-template-columns: 1fr; gap: 12px; }
+      .fb-product-form { grid-template-columns: 1fr; }
+      .fb-row { grid-template-columns: minmax(0, 1fr) auto 36px; }
+      .fb-stock { display: none; }
+      .fb-cart { position: static; }
+    }
+    @media (max-width: 430px) {
+      .fb-brand h1 { font-size: 21px; }
+      .fb-grid { grid-template-columns: 1fr 1fr; }
+      .fb-metric { padding: 12px; }
+      .fb-metric strong { font-size: 18px; }
+      .fb-row { gap: 8px; padding: 9px; }
+      .fb-price { font-size: 12px; }
+      .fb-top { padding: 12px; }
+      .fb-panel { padding: 13px; }
+    }
+  `}</style>;
 }
 
 export default function AlsaStoreBilling() {
@@ -143,9 +222,7 @@ export default function AlsaStoreBilling() {
   const filteredProducts = useMemo(() => {
     const text = queryText.trim().toLowerCase();
     if (!text) return products;
-    return products.filter((product) =>
-      `${product.name} ${product.barcode} ${product.category}`.toLowerCase().includes(text),
-    );
+    return products.filter((product) => `${product.name} ${product.barcode} ${product.category}`.toLowerCase().includes(text));
   }, [products, queryText]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -243,89 +320,99 @@ export default function AlsaStoreBilling() {
 
   if (!user) {
     return (
-      <main className="firebase-page">
-        <section className="firebase-auth-card">
-          <div className="brand-lockup"><span className="brand-mark">AS</span><div><p>Alsa Store Billing</p><h1>Firebase Login</h1></div></div>
-          <p className="sync-warning">This version uses Firebase only. It will not connect to Nila/Supabase.</p>
-          <form onSubmit={handleAuth} className="firebase-form">
-            <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-            <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required /></label>
-            {authError && <p className="form-error">{authError}</p>}
-            <button type="submit" disabled={busy}>{busy ? "Please wait..." : authMode === "signup" ? "Create Alsa account" : "Sign in"}</button>
-          </form>
-          <button className="link-button" onClick={() => setAuthMode(authMode === "signup" ? "signin" : "signup")}>{authMode === "signup" ? "Already have an account? Sign in" : "New account? Create owner login"}</button>
+      <main className="fb-page">
+        <AppStyles />
+        <section className="fb-auth-wrap">
+          <div className="fb-auth-card">
+            <div className="fb-brand">
+              <span className="fb-mark">AS</span>
+              <div><p>Alsa Store Billing</p><h1>Firebase Login</h1></div>
+            </div>
+            <p className="fb-warning">This version uses Firebase only. It will not connect to Nila/Supabase.</p>
+            <form onSubmit={handleAuth} className="fb-form">
+              <label className="fb-label">Email<input className="fb-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+              <label className="fb-label">Password<input className="fb-input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required /></label>
+              {authError && <p className="fb-error">{authError}</p>}
+              <button className="fb-primary" type="submit" disabled={busy}>{busy ? "Please wait..." : authMode === "signup" ? "Create Alsa account" : "Sign in"}</button>
+            </form>
+            <button className="fb-link" onClick={() => setAuthMode(authMode === "signup" ? "signin" : "signup")}>{authMode === "signup" ? "Already have an account? Sign in" : "New account? Create owner login"}</button>
+          </div>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="firebase-page">
-      <header className="firebase-header">
-        <div className="brand-lockup"><span className="brand-mark">AS</span><div><p>Firebase isolated</p><h1>Alsa Store Billing</h1></div></div>
-        <button className="outline-button" onClick={() => signOut(auth)}><LogOut size={16} /> Sign out</button>
+    <main className="fb-page">
+      <AppStyles />
+      <header className="fb-top">
+        <div className="fb-brand"><span className="fb-mark">AS</span><div><p>Firebase isolated</p><h1>Alsa Store Billing</h1></div></div>
+        <button className="fb-signout" onClick={() => signOut(auth)}>Sign out</button>
       </header>
 
-      <section className="metric-grid">
-        <article><span>Products</span><strong>{products.length}</strong></article>
-        <article><span>Low stock</span><strong>{lowStock}</strong></article>
-        <article><span>Current bill</span><strong>{money(subtotal)}</strong></article>
-        <article><span>Recent sales</span><strong>{sales.length}</strong></article>
+      <section className="fb-grid">
+        <article className="fb-metric"><span>Products</span><strong>{products.length}</strong></article>
+        <article className="fb-metric"><span>Low stock</span><strong>{lowStock}</strong></article>
+        <article className="fb-metric"><span>Current bill</span><strong>{money(subtotal)}</strong></article>
+        <article className="fb-metric"><span>Recent sales</span><strong>{sales.length}</strong></article>
       </section>
 
-      {message && <div className="firebase-message">{message}</div>}
+      {message && <div className="fb-message">{message}</div>}
 
-      <section className="firebase-layout">
-        <div className="panel-card">
-          <h2><PackagePlus size={20} /> Add product</h2>
-          <form onSubmit={addProduct} className="product-form">
-            <input name="name" placeholder="Product name" required />
-            <input name="barcode" placeholder="Barcode" />
-            <input name="category" placeholder="Category" defaultValue="General" />
-            <input name="mrp" placeholder="MRP" type="number" step="0.01" />
-            <input name="price" placeholder="Sale price" type="number" step="0.01" required />
-            <input name="stock" placeholder="Stock" type="number" required />
-            <input name="gst" placeholder="GST %" type="number" step="0.01" defaultValue="0" />
-            <button type="submit" disabled={busy}>Save to Firebase</button>
+      <section className="fb-layout">
+        <div className="fb-panel">
+          <h2>Add product</h2>
+          <form onSubmit={addProduct} className="fb-product-form">
+            <input className="fb-input wide" name="name" placeholder="Product name" required />
+            <input className="fb-input" name="barcode" placeholder="Barcode" />
+            <input className="fb-input" name="category" placeholder="Category" defaultValue="General" />
+            <input className="fb-input" name="mrp" placeholder="MRP" type="number" step="0.01" />
+            <input className="fb-input" name="price" placeholder="Sale price" type="number" step="0.01" required />
+            <input className="fb-input" name="stock" placeholder="Stock" type="number" required />
+            <input className="fb-input" name="gst" placeholder="GST %" type="number" step="0.01" defaultValue="0" />
+            <button className="fb-primary" type="submit" disabled={busy}>Save to Firebase</button>
           </form>
         </div>
 
-        <div className="panel-card products-card">
-          <div className="panel-headline"><h2><Barcode size={20} /> Products</h2><input value={queryText} onChange={(event) => setQueryText(event.target.value)} placeholder="Search name or barcode" /></div>
-          <div className="firebase-table">
-            {filteredProducts.map((product) => (
-              <div className="firebase-row" key={product.id}>
-                <button className="row-main" onClick={() => addToCart(product)}>
-                  <strong>{product.name}</strong><span>{product.category} · {product.barcode || "No barcode"}</span>
-                </button>
-                <span>{money(product.price)}</span>
-                <span>Stock {product.stock}</span>
-                <button className="icon-danger" onClick={() => deleteProduct(product)} title="Delete"><Trash2 size={16} /></button>
+        <aside className="fb-panel fb-cart">
+          <h2>Current bill</h2>
+          <div className="fb-cart-lines">
+            {cart.map((item) => (
+              <div className="fb-cart-line" key={item.id}>
+                <span>{item.name}</span>
+                <div className="fb-qty"><button onClick={() => setCart((current) => current.map((row) => row.id === item.id ? { ...row, quantity: Math.max(1, row.quantity - 1) } : row))}>−</button><strong>{item.quantity}</strong><button onClick={() => addToCart(item)}>+</button></div>
+                <strong>{money(item.price * item.quantity)}</strong>
               </div>
             ))}
-            {!filteredProducts.length && <p className="empty-copy">No products yet. Add your first Alsa product.</p>}
+          </div>
+          {!cart.length && <p className="fb-empty">Tap a product to add it to bill.</p>}
+          <div className="fb-total"><span>GST included</span><strong>{money(gstTotal)}</strong></div>
+          <div className="fb-total grand"><span>Total</span><strong>{money(subtotal)}</strong></div>
+          <button className="fb-primary" style={{ width: "100%", marginTop: 14 }} onClick={completeSale} disabled={!cart.length || busy}>Complete sale</button>
+        </aside>
+
+        <div className="fb-panel">
+          <h2>Products</h2>
+          <input className="fb-input fb-search" value={queryText} onChange={(event) => setQueryText(event.target.value)} placeholder="Search name or barcode" />
+          <div className="fb-list">
+            {filteredProducts.map((product) => (
+              <div className="fb-row" key={product.id}>
+                <button className="fb-row-main" onClick={() => addToCart(product)}>
+                  <strong>{product.name}</strong><span>{product.category} · {product.barcode || "No barcode"}</span>
+                </button>
+                <span className="fb-price">{money(product.price)}</span>
+                <span className="fb-stock">Stock {product.stock}</span>
+                <button className="fb-danger" onClick={() => deleteProduct(product)} title="Delete">×</button>
+              </div>
+            ))}
+            {!filteredProducts.length && <p className="fb-empty">No products yet. Add your first Alsa product.</p>}
           </div>
         </div>
 
-        <div className="panel-card cart-card">
-          <h2><ReceiptIndianRupee size={20} /> Current bill</h2>
-          {cart.map((item) => (
-            <div className="cart-line" key={item.id}>
-              <span>{item.name}</span>
-              <div><button onClick={() => setCart((current) => current.map((row) => row.id === item.id ? { ...row, quantity: Math.max(1, row.quantity - 1) } : row))}>−</button><strong>{item.quantity}</strong><button onClick={() => addToCart(item)}>+</button></div>
-              <strong>{money(item.price * item.quantity)}</strong>
-            </div>
-          ))}
-          {!cart.length && <p className="empty-copy">Tap a product to add it to bill.</p>}
-          <div className="bill-total"><span>GST included</span><strong>{money(gstTotal)}</strong></div>
-          <div className="bill-total grand"><span>Total</span><strong>{money(subtotal)}</strong></div>
-          <button className="checkout-button" onClick={completeSale} disabled={!cart.length || busy}>Complete sale</button>
-        </div>
-
-        <div className="panel-card">
+        <div className="fb-panel fb-sales">
           <h2>Recent Firebase sales</h2>
-          {sales.map((sale) => <div className="sale-line" key={sale.id}><span>{sale.invoiceNo}</span><strong>{money(sale.total)}</strong></div>)}
-          {!sales.length && <p className="empty-copy">No sales saved yet.</p>}
+          {sales.map((sale) => <div className="fb-sale-line" key={sale.id}><span>{sale.invoiceNo}</span><strong>{money(sale.total)}</strong></div>)}
+          {!sales.length && <p className="fb-empty">No sales saved yet.</p>}
         </div>
       </section>
     </main>
