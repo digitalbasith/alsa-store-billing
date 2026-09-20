@@ -1,15 +1,28 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { gunzip } from "node:zlib";
-import { promisify } from "node:util";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 
-const unzip = promisify(gunzip);
 const root = process.cwd();
-const sourcePath = path.join(root, "lib", "firebase.ts.gz");
+const partsDir = path.join(root, "lib", "firebase.parts");
 const targetPath = path.join(root, "lib", "firebase.ts");
+const expectedSha256 = "113ee1a1ad2e82c2bb78f51170c31c71e3b2468a54acb2ef77bbc272480e233c";
+
+const names = (await readdir(partsDir))
+  .filter((name) => name.endsWith(".b64"))
+  .sort();
+
+if (!names.length) throw new Error("Firebase adapter parts are missing");
+
+const encoded = (await Promise.all(
+  names.map((name) => readFile(path.join(partsDir, name), "utf8")),
+)).join("");
+
+const source = Buffer.from(encoded, "base64");
+const actualSha256 = createHash("sha256").update(source).digest("hex");
+if (actualSha256 !== expectedSha256) {
+  throw new Error(`Firebase adapter checksum mismatch: ${actualSha256}`);
+}
 
 await mkdir(path.dirname(targetPath), { recursive: true });
-const packed = await readFile(sourcePath);
-const source = await unzip(packed);
 await writeFile(targetPath, source);
-console.log("[firebase] materialized lib/firebase.ts");
+console.log("[firebase] materialized verified lib/firebase.ts");
