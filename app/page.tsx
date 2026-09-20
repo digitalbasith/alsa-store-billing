@@ -16,7 +16,7 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useSta
 import { LiveActionModal, englishToTamil, type ActionMode } from "@/components/live-action-modal";
 import { EnterpriseSuite, type EnterpriseModule } from "@/components/enterprise-suite";
 import { syncCatalogToCloud, type CatalogInput } from "@/lib/alsa-cloud";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getFirebaseBrowserClient } from "@/lib/firebase";
 
 type Language = "en" | "ta";
 type Section = "dashboard" | "billing" | "sales" | "products" | "inventory" | "purchases" | "accounts" | "reports" | "orders" | "maintenance" | "customers" | "suppliers" | "staff" | "settings";
@@ -166,9 +166,9 @@ export default function Home() {
   const t = copy[language];
 
   const loadProductsFromCloud = useCallback(async (activeStoreId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-    const { data, error } = await supabase
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
+    const { data, error } = await firebase
       .from("products")
       .select("id,sku,name_en,name_ta,unit,unit_size,selling_price,mrp,current_stock,gst_rate,metadata,categories(name_en),product_barcodes(barcode,is_primary)")
       .eq("store_id", activeStoreId)
@@ -181,15 +181,15 @@ export default function Home() {
   }, []);
 
   const loadWorkspaceRecords = useCallback(async (activeStoreId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     const [salesResult, purchasesResult, customersResult, suppliersResult, staffResult, storeResult] = await Promise.all([
-      supabase.from("sales").select("id,invoice_no,grand_total,tax_total,discount_total,paid_total,balance_due,item_count,status,created_at").eq("store_id", activeStoreId).order("created_at", { ascending: false }).limit(1000),
-      supabase.from("purchases").select("id,purchase_no,supplier_invoice_no,invoice_date,subtotal,tax_total,grand_total,paid_total,balance_due,status,suppliers(name)").eq("store_id", activeStoreId).order("invoice_date", { ascending: false }).limit(200),
-      supabase.from("customers").select("id,name,phone,email,loyalty_points,lifetime_value,outstanding_balance,visit_count").eq("store_id", activeStoreId).eq("active", true).order("name"),
-      supabase.from("suppliers").select("id,name,phone,email,opening_balance,credit_days,active").eq("store_id", activeStoreId).eq("active", true).order("name"),
-      supabase.from("store_members").select("user_id,display_name,role,active,created_at").eq("store_id", activeStoreId).order("created_at"),
-      supabase.from("stores").select("name,gstin,phone,email,address,invoice_prefix").eq("id", activeStoreId).single(),
+      firebase.from("sales").select("id,invoice_no,grand_total,tax_total,discount_total,paid_total,balance_due,item_count,status,created_at").eq("store_id", activeStoreId).order("created_at", { ascending: false }).limit(1000),
+      firebase.from("purchases").select("id,purchase_no,supplier_invoice_no,invoice_date,subtotal,tax_total,grand_total,paid_total,balance_due,status,suppliers(name)").eq("store_id", activeStoreId).order("invoice_date", { ascending: false }).limit(200),
+      firebase.from("customers").select("id,name,phone,email,loyalty_points,lifetime_value,outstanding_balance,visit_count").eq("store_id", activeStoreId).eq("active", true).order("name"),
+      firebase.from("suppliers").select("id,name,phone,email,opening_balance,credit_days,active").eq("store_id", activeStoreId).eq("active", true).order("name"),
+      firebase.from("store_members").select("user_id,display_name,role,active,created_at").eq("store_id", activeStoreId).order("created_at"),
+      firebase.from("stores").select("name,gstin,phone,email,address,invoice_prefix").eq("id", activeStoreId).single(),
     ]);
     const firstError = [salesResult.error, purchasesResult.error, customersResult.error, suppliersResult.error, staffResult.error, storeResult.error].find(Boolean);
     if (firstError) throw firstError;
@@ -202,7 +202,7 @@ export default function Home() {
     const address = typeof profile.address === "string" ? profile.address : profile.address ? Object.values(profile.address).filter(Boolean).join(", ") : "";
     setStoreProfile({ name: profile.name, gstin: profile.gstin || "", phone: profile.phone || "", email: profile.email || "", address, invoice_prefix: profile.invoice_prefix });
     setStoreName(profile.name);
-    const { data: profitData, error: profitError } = await supabase.rpc("profit_summary", { p_store_id: activeStoreId });
+    const { data: profitData, error: profitError } = await firebase.rpc("profit_summary", { p_store_id: activeStoreId });
     if (!profitError && profitData) {
       const p = profitData as Record<string, unknown>;
       setProfitSummary({
@@ -215,10 +215,10 @@ export default function Home() {
   }, []);
 
   const loadCloudWorkspace = useCallback(async (userId: string, email = "") => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setCloudStatus("demo"); return; }
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) { setCloudStatus("demo"); return; }
     setCloudError("");
-    const { data: member, error } = await supabase
+    const { data: member, error } = await firebase
       .from("store_members")
       .select("store_id,role,display_name,stores(name)")
       .eq("user_id", userId)
@@ -268,9 +268,9 @@ export default function Home() {
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, []);
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-    supabase.rpc("nila_bootstrap_status").then(({ data, error }) => {
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
+    firebase.rpc("nila_bootstrap_status").then(({ data, error }) => {
       if (error) { setOwnerSignupAvailable(false); return; }
       const available = data === true;
       setOwnerSignupAvailable(available);
@@ -278,10 +278,10 @@ export default function Home() {
     });
   }, []);
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) { window.setTimeout(() => setCloudStatus("demo"), 0); return; }
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) { window.setTimeout(() => setCloudStatus("demo"), 0); return; }
     let mounted = true;
-    supabase.auth.getSession().then(async ({ data, error }) => {
+    firebase.auth.getSession().then(async ({ data, error }) => {
       if (!mounted) return;
       if (error) { setCloudError(error.message); setCloudStatus("demo"); return; }
       if (data.session?.user) {
@@ -292,7 +292,7 @@ export default function Home() {
         setAuthOpen(true);
       }
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: listener } = firebase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         setCloudStatus("demo"); setStoreId(null); setProducts(productsSeed); setCart([]); setUserEmail(""); setSales([]); setPurchases([]); setCustomers([]); setSuppliers([]); setStaff([]);
       } else if (session?.user && (event === "SIGNED_IN" || event === "USER_UPDATED")) {
@@ -334,18 +334,17 @@ export default function Home() {
   const updateQuantity = (id: string, delta: number) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter((item) => item.quantity > 0));
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setAuthMessage("Cloud configuration is unavailable. Demo mode is still ready."); return; }
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) { setAuthMessage("Cloud configuration is unavailable. Demo mode is still ready."); return; }
     setAuthBusy(true); setAuthMessage(""); setCloudError("");
     try {
       if (authMode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await firebase.auth.signUp({
           email: authEmail.trim(),
           password: authPassword,
           options: {
             data: { full_name: authName.trim() || "Alsa Owner" },
-            emailRedirectTo: window.location.origin,
-          },
+                      },
         });
         if (error) throw error;
         if (!data.session) {
@@ -353,7 +352,7 @@ export default function Home() {
           setAuthMode("signin");
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+        const { error } = await firebase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
         if (error) throw error;
       }
     } catch (authError) {
@@ -362,24 +361,24 @@ export default function Home() {
   };
   const createWorkspace = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     setAuthBusy(true); setCloudError("");
     try {
-      const { data: userResult, error: userError } = await supabase.auth.getUser();
+      const { data: userResult, error: userError } = await firebase.auth.getUser();
       if (userError || !userResult.user) throw userError || new Error("Please sign in again");
-      const { data: newStoreId, error } = await supabase.rpc("create_store", {
+      const { data: newStoreId, error } = await firebase.rpc("create_store", {
         store_name: setupStoreName.trim(),
         store_gstin: setupGstin.trim() || null,
         store_phone: setupPhone.trim() || null,
       });
       if (error) throw error;
-      const { error: prefixError } = await supabase
+      const { error: prefixError } = await firebase
         .from("stores")
         .update({ invoice_prefix: "AS" })
         .eq("id", String(newStoreId));
       if (prefixError) throw prefixError;
-      await syncCatalogToCloud(supabase, String(newStoreId), productsSeed);
+      await syncCatalogToCloud(firebase, String(newStoreId), productsSeed);
       await loadCloudWorkspace(userResult.user.id, userResult.user.email || "");
       setOwnerSignupAvailable(false);
       setAuthMode("signin");
@@ -389,8 +388,8 @@ export default function Home() {
     } finally { setAuthBusy(false); }
   };
   const signOut = async () => {
-    const supabase = getSupabaseBrowserClient();
-    if (supabase) await supabase.auth.signOut();
+    const firebase = getFirebaseBrowserClient();
+    if (firebase) await firebase.auth.signOut();
     setAuthOpen(true); setAuthMode("signin"); notify("Signed out safely");
   };
   const completeSale = async () => {
@@ -399,11 +398,11 @@ export default function Home() {
       setPaymentOpen(false); setCashReceived(""); setCart([]); setInvoiceLabel("AS-DEMO-0184");
       notify(`Demo sale completed via ${paymentMode} — sign in to save it`); return;
     }
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     setSaleBusy(true); setSaleError("");
     try {
-      const { data, error } = await supabase.rpc("complete_sale", {
+      const { data, error } = await firebase.rpc("complete_sale", {
         p_store_id: storeId,
         p_customer_id: null,
         p_register_session_id: null,
@@ -430,11 +429,11 @@ export default function Home() {
   };
   const undoLastSale = async () => {
     if (!undoSale || !storeId || undoBusy) return;
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     setUndoBusy(true);
     try {
-      const { error } = await supabase.rpc("undo_sale_30s", { p_store_id: storeId, p_sale_id: undoSale.id });
+      const { error } = await firebase.rpc("undo_sale_30s", { p_store_id: storeId, p_sale_id: undoSale.id });
       if (error) throw error;
       const invoice = undoSale.invoice;
       setUndoSale(null);
@@ -468,12 +467,12 @@ export default function Home() {
     const selectedProducts = products.filter((product) => uniqueIds.includes(product.id));
     const label = selectedProducts.length === 1 ? `“${selectedProducts[0].name}”` : `${selectedProducts.length} products`;
     if (!window.confirm(`Delete ${label}? They will be removed from the active catalogue, while existing sales and purchase history will stay intact.`)) return;
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     setActionBusy(true);
     setActionError("");
     try {
-      const { error } = await supabase
+      const { error } = await firebase
         .from("products")
         .update({ active: false })
         .eq("store_id", storeId)
@@ -491,8 +490,8 @@ export default function Home() {
 
   const saveEditedProduct = async (formData: FormData) => {
     if (!editingProduct || !storeId) return;
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     const value = (name: string) => String(formData.get(name) || "").trim();
     const numberValue = (name: string) => Number(value(name) || 0);
     setActionBusy(true); setActionError("");
@@ -500,13 +499,13 @@ export default function Home() {
       const categoryName = value("category");
       let categoryId: string | null = null;
       if (categoryName) {
-        const { data: categoryRow, error: categoryError } = await supabase.from("categories").upsert({
+        const { data: categoryRow, error: categoryError } = await firebase.from("categories").upsert({
           store_id: storeId, name_en: categoryName, active: true,
         }, { onConflict: "store_id,name_en" }).select("id").single();
         if (categoryError) throw categoryError;
         categoryId = String(categoryRow.id);
       }
-      const { error: productError } = await supabase.from("products").update({
+      const { error: productError } = await firebase.from("products").update({
         name_en: value("name"),
         name_ta: value("tamil") || null,
         category_id: categoryId,
@@ -519,10 +518,10 @@ export default function Home() {
       }).eq("id", editingProduct.id).eq("store_id", storeId);
       if (productError) throw productError;
 
-      const { error: deleteBarcodeError } = await supabase.from("product_barcodes").delete().eq("store_id", storeId).eq("product_id", editingProduct.id);
+      const { error: deleteBarcodeError } = await firebase.from("product_barcodes").delete().eq("store_id", storeId).eq("product_id", editingProduct.id);
       if (deleteBarcodeError) throw deleteBarcodeError;
       if (value("barcode")) {
-        const { error: barcodeError } = await supabase.from("product_barcodes").insert({
+        const { error: barcodeError } = await firebase.from("product_barcodes").insert({
           store_id: storeId, product_id: editingProduct.id, barcode: value("barcode"), is_primary: true,
         });
         if (barcodeError) throw barcodeError;
@@ -540,14 +539,14 @@ export default function Home() {
     setActionError(""); setActionMode(mode);
   };
   const handleActionSubmit = async (mode: ActionMode, formData: FormData) => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase || !storeId) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase || !storeId) return;
     const value = (name: string) => String(formData.get(name) || "").trim();
     const numberValue = (name: string) => Number(value(name) || 0);
     setActionBusy(true); setActionError("");
     try {
       if (mode === "product") {
-        await syncCatalogToCloud(supabase, storeId, [{
+        await syncCatalogToCloud(firebase, storeId, [{
           name: value("name"), tamil: value("tamil"), barcode: value("barcode"),
           category: value("category"), unit: "unit", price: numberValue("price"),
           mrp: numberValue("mrp"), stock: Math.max(0, Math.round(numberValue("stock"))), gst: numberValue("gst"),
@@ -556,7 +555,7 @@ export default function Home() {
         await loadProductsFromCloud(storeId);
       } else if (mode === "customer" || mode === "supplier") {
         const table = mode === "customer" ? "customers" : "suppliers";
-        const { error } = await supabase.from(table).insert({
+        const { error } = await firebase.from(table).insert({
           store_id: storeId,
           name: value("name"),
           phone: value("phone") || null,
@@ -566,7 +565,7 @@ export default function Home() {
         if (error) throw error;
         await loadWorkspaceRecords(storeId);
       } else if (mode === "purchase") {
-        const { data, error } = await supabase.rpc("receive_purchase", {
+        const { data, error } = await firebase.rpc("receive_purchase", {
           p_store_id: storeId,
           p_supplier_id: value("supplier_id") || null,
           p_supplier_invoice_no: value("supplier_invoice_no") || null,
@@ -584,7 +583,7 @@ export default function Home() {
         notify(`Purchase ${receipt?.purchase_no || "saved"} received into stock`);
         await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
       } else if (mode === "staff") {
-        const { data, error } = await supabase.functions.invoke("invite-staff", { body: {
+        const { data, error } = await firebase.functions.invoke("invite-staff", { body: {
           store_id: storeId,
           email: value("email"),
           display_name: value("display_name"),
@@ -596,16 +595,16 @@ export default function Home() {
         await loadWorkspaceRecords(storeId);
       }
       setActionMode(null);
-      if (mode !== "purchase" && mode !== "staff") notify(`${mode[0].toUpperCase()}${mode.slice(1)} saved to Supabase`);
+      if (mode !== "purchase" && mode !== "staff") notify(`${mode[0].toUpperCase()}${mode.slice(1)} saved to Firebase`);
     } catch (actionFailure) {
       setActionError(actionFailure instanceof Error ? actionFailure.message : "This action could not be saved");
     } finally { setActionBusy(false); }
   };
   const saveStoreProfile = async (formData: FormData) => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase || !storeId) { setAuthOpen(true); return; }
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase || !storeId) { setAuthOpen(true); return; }
     const value = (name: string) => String(formData.get(name) || "").trim();
-    const { error } = await supabase.from("stores").update({
+    const { error } = await firebase.from("stores").update({
       name: value("name"), gstin: value("gstin").toUpperCase() || null,
       phone: value("phone") || null, email: value("email") || null,
       address: value("address") ? { line1: value("address") } : {},
@@ -627,11 +626,11 @@ export default function Home() {
       const at = (row: readonly unknown[], names: string[]) => { const index = headers.findIndex((header) => names.includes(header)); return index >= 0 ? row[index] : null; };
       const imported = rows.slice(1).filter((row) => row.some(Boolean)).map((row, index): Product => ({ id: `import-${Date.now()}-${index}`, name: String(at(row, ["product", "product name", "name"]) || `Imported product ${index + 1}`), tamil: String(at(row, ["tamil", "tamil name"]) || ""), barcode: String(at(row, ["barcode", "ean"]) || `IMP${Date.now()}${index}`), category: String(at(row, ["category"]) || "Imported"), unit: String(at(row, ["unit", "size"]) || "1 unit"), mrp: Number(at(row, ["mrp"]) || 0), price: Number(at(row, ["sale price", "price", "selling price"]) || 0), stock: Number(at(row, ["stock", "quantity", "qty"]) || 0), gst: Number(at(row, ["gst", "tax"]) || 0), icon: "📦", tint: "blue" }));
       if (cloudStatus === "live" && storeId) {
-        const supabase = getSupabaseBrowserClient();
-        if (!supabase) throw new Error("Cloud connection unavailable");
-        await syncCatalogToCloud(supabase, storeId, imported as CatalogInput[]);
+        const firebase = getFirebaseBrowserClient();
+        if (!firebase) throw new Error("Cloud connection unavailable");
+        await syncCatalogToCloud(firebase, storeId, imported as CatalogInput[]);
         await loadProductsFromCloud(storeId);
-        notify(`${imported.length} products imported and saved to Supabase`);
+        notify(`${imported.length} products imported and saved to Firebase`);
       } else {
         setProducts((current) => [...imported, ...current]);
         notify(`${imported.length} products imported in demo mode`);
@@ -656,7 +655,7 @@ export default function Home() {
       <div className="sidebar-head"><Logo compact={collapsed} /><button className="icon-button sidebar-toggle" onClick={() => setCollapsed((v) => !v)} aria-label="Toggle navigation">{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><button className="icon-button mobile-close" onClick={() => setMobileNav(false)} aria-label="Close navigation"><X size={19} /></button></div>
       <div className="branch-card"><div className="branch-icon"><Store size={17} /></div>{!collapsed && <div><span>Current branch</span><strong>{storeName} · Main Store</strong></div>}{!collapsed && <ChevronDown size={15} />}</div>
       <nav className="sidebar-nav" aria-label="Main navigation"><p className="nav-kicker">{collapsed ? "•••" : "WORKSPACE"}</p>{navTop.map(({ id, icon: Icon }) => <button key={id} className={`nav-item ${section === id ? "active" : ""}`} onClick={() => changeSection(id)} title={navLabel(id)}><Icon size={19} /><span>{navLabel(id)}</span>{id === "billing" && !collapsed && <kbd>F2</kbd>}</button>)}<p className="nav-kicker manage">{collapsed ? "•••" : "MANAGE"}</p>{navManage.map(({ id, icon: Icon }) => <button key={id} className={`nav-item ${section === id ? "active" : ""}`} onClick={() => changeSection(id)} title={navLabel(id)}><Icon size={19} /><span>{navLabel(id)}</span></button>)}</nav>
-      <div className="sidebar-footer">{!collapsed && <div className={`sync-card ${cloudStatus !== "live" ? "is-demo" : ""}`}><span className="sync-dot" /><div><strong>{cloudStatus === "live" ? "Supabase sync active" : cloudStatus === "checking" ? "Checking cloud…" : "Demo mode"}</strong><span>{cloudStatus === "live" ? "RLS protected · synced" : "Sign in to save bills"}</span></div>{cloudStatus === "live" ? <Check size={15} /> : <CloudOff size={15} />}</div>}<button className="profile-chip" onClick={() => setAuthOpen(true)}><span className="avatar">{profileInitials}</span>{!collapsed && <><span className="profile-copy"><strong>{userName}</strong><small>{cloudStatus === "live" ? roleLabel(userRole) : "Demo operator"}</small></span><MoreHorizontal size={18} /></>}</button></div>
+      <div className="sidebar-footer">{!collapsed && <div className={`sync-card ${cloudStatus !== "live" ? "is-demo" : ""}`}><span className="sync-dot" /><div><strong>{cloudStatus === "live" ? "Firebase sync active" : cloudStatus === "checking" ? "Checking cloud…" : "Demo mode"}</strong><span>{cloudStatus === "live" ? "Firestore rules · synced" : "Sign in to save bills"}</span></div>{cloudStatus === "live" ? <Check size={15} /> : <CloudOff size={15} />}</div>}<button className="profile-chip" onClick={() => setAuthOpen(true)}><span className="avatar">{profileInitials}</span>{!collapsed && <><span className="profile-copy"><strong>{userName}</strong><small>{cloudStatus === "live" ? roleLabel(userRole) : "Demo operator"}</small></span><MoreHorizontal size={18} /></>}</button></div>
     </aside>
     {mobileNav && <button className="nav-scrim" aria-label="Close menu" onClick={() => setMobileNav(false)} />}
     <section className={`workspace ${collapsed ? "sidebar-collapsed" : ""}`}>
@@ -715,11 +714,11 @@ export default function Home() {
     {paymentOpen && <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Complete payment"><button className="modal-backdrop" onClick={() => !saleBusy && setPaymentOpen(false)} /><section className="payment-modal"><div className="modal-head"><div><span className="eyebrow"><ShieldCheck size={13} /> SECURE CHECKOUT</span><h2>Complete payment</h2><p>Invoice #{invoiceLabel} · {cart.length} line items</p></div><button className="icon-button" onClick={() => setPaymentOpen(false)} disabled={saleBusy}><X size={20} /></button></div><div className="payment-total"><span>Amount to collect</span><strong>{currency(roundedTotal)}</strong><small>You saved the customer {currency(savings)}</small></div><div className="payment-modes">{(["Cash", "UPI", "Card"] as const).map((mode) => { const Icon = mode === "Cash" ? Banknote : mode === "UPI" ? Landmark : CreditCard; return <button key={mode} className={paymentMode === mode ? "active" : ""} onClick={() => setPaymentMode(mode)}><Icon size={20} /><strong>{mode}</strong><small>{mode === "Cash" ? "Notes & coins" : mode === "UPI" ? "Scan any UPI" : "Debit / credit"}</small>{paymentMode === mode && <Check size={15} />}</button>; })}</div>{paymentMode === "Cash" ? <div className="cash-box"><label>Cash received<div><IndianRupee size={18} /><input autoFocus inputMode="decimal" value={cashReceived} onChange={(e) => setCashReceived(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={String(roundedTotal)} /></div></label><div className="cash-shortcuts">{[roundedTotal, 500, 1000, 2000].filter((value, index, values) => value >= roundedTotal && values.indexOf(value) === index).map((value) => <button key={value} onClick={() => setCashReceived(String(value))}>{currency(value)}</button>)}</div><div className="change-row"><span>Return change</span><strong>{currency(change)}</strong></div></div> : paymentMode === "UPI" ? <div className="upi-box"><div className="qr-demo"><Grid2X2 size={54} /></div><div><strong>Scan to pay {currency(roundedTotal)}</strong><span>Waiting for payment confirmation…</span><p><span className="pulse-dot" /> Alsa Store UPI</p></div></div> : <div className="terminal-box"><CreditCard size={32} /><div><strong>Card terminal ready</strong><span>Ask the customer to tap, insert or swipe.</span></div><RefreshCcw size={18} className="spin" /></div>}{saleError && <p className="auth-alert error">{saleError}</p>}<button className="complete-payment" onClick={completeSale} disabled={saleBusy}>{saleBusy ? <LoaderCircle size={19} className="spin" /> : <Check size={19} />} {saleBusy ? "Saving secure sale…" : `Confirm ${paymentMode} payment`} <span>{currency(roundedTotal)}</span></button><p className="modal-note"><Printer size={14} /> {cloudStatus === "live" ? "Sale, stock and audit trail will update together" : "Demo receipt · sign in to save to cloud"}</p></section></div>}
     {authOpen && <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Alsa cloud access"><button className="modal-backdrop" onClick={() => setAuthOpen(false)} /><section className="auth-modal">
       <div className="auth-brand"><Logo /><button className="icon-button" onClick={() => setAuthOpen(false)} aria-label="Close"><X size={19} /></button></div>
-      {cloudStatus === "live" ? <div className="account-panel"><span className="account-avatar">{profileInitials}</span><span className="eyebrow"><Cloud size={13} /> CLOUD ACCOUNT</span><h2>{userName}</h2><p>{userEmail}</p><div className="account-meta"><span><Store size={16} />{storeName}</span><span><ShieldCheck size={16} />{roleLabel(userRole)}</span><span><Database size={16} />Supabase connected</span></div><button className="signout-button" onClick={signOut}><LogOut size={17} /> Sign out from this device</button></div> : <>
+      {cloudStatus === "live" ? <div className="account-panel"><span className="account-avatar">{profileInitials}</span><span className="eyebrow"><Cloud size={13} /> CLOUD ACCOUNT</span><h2>{userName}</h2><p>{userEmail}</p><div className="account-meta"><span><Store size={16} />{storeName}</span><span><ShieldCheck size={16} />{roleLabel(userRole)}</span><span><Database size={16} />Firebase connected</span></div><button className="signout-button" onClick={signOut}><LogOut size={17} /> Sign out from this device</button></div> : <>
         <div className="auth-intro"><span className="auth-icon"><LockKeyhole size={22} /></span><span className="eyebrow">SECURE SUPERMARKET CLOUD</span><h2>{authMode === "signup" ? "Create the owner account" : "Welcome back"}</h2><p>{authMode === "signup" ? "Use your new email ID. Your first account becomes Super Admin for Alsa Store." : "Sign in to continue billing, products, stock and reports."}</p></div>
         <div className={`auth-tabs ${ownerSignupAvailable ? "" : "signin-only"}`}>{ownerSignupAvailable && <button className={authMode === "signup" ? "active" : ""} onClick={() => { setAuthMode("signup"); setCloudError(""); setAuthMessage(""); }}>Create owner</button>}<button className={authMode === "signin" ? "active" : ""} onClick={() => { setAuthMode("signin"); setCloudError(""); setAuthMessage(""); }}>Sign in</button></div>
         <form className="auth-form" onSubmit={submitAuth}>{authMode === "signup" && <label><span>Owner name</span><div><UserRound size={17} /><input value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder="Your name" autoComplete="name" required /></div></label>}<label><span>Email ID</span><div><Mail size={17} /><input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="owner@alsastore.in" autoComplete="email" required /></div></label><label><span>Password</span><div><LockKeyhole size={17} /><input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Minimum 6 characters" autoComplete={authMode === "signup" ? "new-password" : "current-password"} minLength={6} required /></div></label>{cloudError && <p className="auth-alert error">{cloudError}</p>}{authMessage && <p className="auth-alert success">{authMessage}</p>}<button className="auth-submit" disabled={authBusy}>{authBusy ? <LoaderCircle size={18} className="spin" /> : <LogIn size={18} />}{authBusy ? "Please wait…" : authMode === "signup" ? "Create owner account" : "Sign in securely"}</button></form>
-        <button className="demo-link" onClick={() => setAuthOpen(false)}>Explore the interface in demo mode</button><p className="auth-security"><ShieldCheck size={14} /> Passwords are handled by Supabase Auth. The app never stores them.</p>
+        <button className="demo-link" onClick={() => setAuthOpen(false)}>Explore the interface in demo mode</button><p className="auth-security"><ShieldCheck size={14} /> Passwords are handled by Firebase Auth. The app never stores them.</p>
       </>}
     </section></div>}
     {storeSetupOpen && <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Create supermarket workspace"><div className="modal-backdrop" /><section className="auth-modal setup-modal"><div className="auth-intro"><span className="auth-icon"><Database size={22} /></span><span className="eyebrow">FIRST-TIME SETUP</span><h2>Create your Alsa workspace</h2><p>This creates the store, your Super Admin role and a starter product catalogue.</p></div><form className="auth-form" onSubmit={createWorkspace}><label><span>Supermarket name</span><div><Store size={17} /><input value={setupStoreName} onChange={(event) => setSetupStoreName(event.target.value)} required /></div></label><div className="auth-form-row"><label><span>GSTIN (optional)</span><div><FileSpreadsheet size={17} /><input value={setupGstin} onChange={(event) => setSetupGstin(event.target.value.toUpperCase())} placeholder="33ABCDE1234F1Z5" /></div></label><label><span>Phone (optional)</span><div><UserRound size={17} /><input value={setupPhone} onChange={(event) => setSetupPhone(event.target.value)} placeholder="+91" /></div></label></div>{cloudError && <p className="auth-alert error">{cloudError}</p>}<button className="auth-submit" disabled={authBusy}>{authBusy ? <LoaderCircle size={18} className="spin" /> : <Sparkles size={18} />}{authBusy ? "Preparing secure workspace…" : "Create Alsa Store"}</button></form><button className="demo-link" onClick={signOut}>Use another email account</button></section></div>}
@@ -752,7 +751,7 @@ function Dashboard({ language, onStartSale, products, sales, live, profit }: { l
     { label: "Low stock items", value: "17", delta: "Demo data", icon: PackageCheck, tone: "orange" },
   ];
   const visibleStock = (live ? lowStock : productsSeed.filter((product) => product.stock <= 18)).slice(0, 4);
-  return <div className="content-view dashboard-view"><section className="welcome-card"><div><span className="eyebrow"><Sparkles size={14} /> {live ? "LIVE STORE OVERVIEW" : "DEMO STORE OVERVIEW"}</span><h1>{language === "ta" ? "வணக்கம்!" : "Good morning!"}</h1><p>{live ? "This dashboard is calculated from your protected Supabase records." : language === "ta" ? "Cloud கணக்கில் உள்நுழையவும்; இப்போது மாதிரி தரவு காட்டப்படுகிறது." : "Sign in to see live store totals. Sample data is shown for preview."}</p></div><button className="primary-button" onClick={onStartSale}><Plus size={18} /> Start new sale <kbd>F2</kbd></button></section><div className="stats-grid">{stats.map(({ label, value, delta, icon: Icon, tone }) => <article className="stat-card" key={label}><div className={`stat-icon ${tone}`}><Icon size={21} /></div><span>{label}</span><strong>{value}</strong><small className={tone === "orange" ? "attention" : "positive"}>{tone === "orange" ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}{delta}</small></article>)}</div><div className="dashboard-grid"><section className="panel sales-chart"><div className="panel-head"><div><h2>Sales performance</h2><span>Revenue across the last 7 days</span></div><button className="range-button">This week <ChevronDown size={15} /></button></div><div className="chart-summary"><strong>{live ? currency(weekTotal) : "₹4,82,360"}</strong><Badge tone={live ? "blue" : "neutral"}>{live ? "Live" : "Demo"}</Badge></div><div className="bar-chart">{(live ? lastSeven.map((day) => ({ d: day.label, v: Math.max(4, Math.round(day.total / peak * 100)) })) : [{ d: "Mon", v: 44 }, { d: "Tue", v: 62 }, { d: "Wed", v: 52 }, { d: "Thu", v: 76 }, { d: "Fri", v: 68 }, { d: "Sat", v: 93 }, { d: "Sun", v: 81 }]).map((bar) => <div key={bar.d}><span style={{ height: `${bar.v}%` }}><i /></span><small>{bar.d}</small></div>)}</div></section><section className="panel tender-panel"><div className="panel-head"><div><h2>Today’s collection</h2><span>{live ? "Completed sales" : "Sample payment mix"}</span></div><MoreHorizontal size={19} /></div><div className="donut-row"><div className="donut"><span>{live ? currency(todayRevenue) : "₹86.4K"}<small>Total</small></span></div><div className="legend">{live ? <><p><i className="upi" /><span>Bills</span><strong>{todaySales.length}</strong></p><p><i className="cash" /><span>Paid</span><strong>{currency(todaySales.reduce((sum, sale) => sum + sale.paid_total, 0))}</strong></p><p><i className="card" /><span>Due</span><strong>{currency(todaySales.reduce((sum, sale) => sum + sale.balance_due, 0))}</strong></p></> : <><p><i className="upi" /><span>UPI</span><strong>52%</strong></p><p><i className="cash" /><span>Cash</span><strong>34%</strong></p><p><i className="card" /><span>Card</span><strong>14%</strong></p></>}</div></div></section><section className="panel low-stock-panel"><div className="panel-head"><div><h2>Low stock alert</h2><span>Reorder before stock-out</span></div><button>View all <ChevronRight size={15} /></button></div>{visibleStock.length ? visibleStock.map((product) => <div className="stock-row" key={product.id}><div><strong>{product.name}</strong><small>{product.category || "General"} · Stock {Math.round(product.stock)}</small></div><span className="stock-count"><strong>{product.stock}</strong><small>left</small></span><button>Reorder</button></div>) : <div className="panel-empty"><PackageCheck size={22} /><span>No low-stock products</span></div>}</section><section className="panel activity-panel"><div className="panel-head"><div><h2>Recent sales</h2><span>{live ? "Live counter records" : "Sample counter updates"}</span></div><span className="live-badge"><i /> {live ? "Live" : "Demo"}</span></div>{(live ? sales.slice(0, 4).map((sale) => [sale.invoice_no, sale.status, currency(sale.grand_total), new Date(sale.created_at).toLocaleString("en-IN")]) : [["NS-0183", "Cash sale", "₹1,248", "2 min ago"], ["NS-0182", "UPI sale", "₹864", "6 min ago"], ["NS-0181", "Card sale", "₹2,116", "18 min ago"]]).map((row) => <div className="activity-row" key={row[0]}><span className="activity-icon"><ReceiptIndianRupee size={16} /></span><div><strong>{row[0]} · {row[1]}</strong><small>{row[3]}</small></div><b>{row[2]}</b></div>)}</section></div></div>;
+  return <div className="content-view dashboard-view"><section className="welcome-card"><div><span className="eyebrow"><Sparkles size={14} /> {live ? "LIVE STORE OVERVIEW" : "DEMO STORE OVERVIEW"}</span><h1>{language === "ta" ? "வணக்கம்!" : "Good morning!"}</h1><p>{live ? "This dashboard is calculated from your protected Firebase records." : language === "ta" ? "Cloud கணக்கில் உள்நுழையவும்; இப்போது மாதிரி தரவு காட்டப்படுகிறது." : "Sign in to see live store totals. Sample data is shown for preview."}</p></div><button className="primary-button" onClick={onStartSale}><Plus size={18} /> Start new sale <kbd>F2</kbd></button></section><div className="stats-grid">{stats.map(({ label, value, delta, icon: Icon, tone }) => <article className="stat-card" key={label}><div className={`stat-icon ${tone}`}><Icon size={21} /></div><span>{label}</span><strong>{value}</strong><small className={tone === "orange" ? "attention" : "positive"}>{tone === "orange" ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}{delta}</small></article>)}</div><div className="dashboard-grid"><section className="panel sales-chart"><div className="panel-head"><div><h2>Sales performance</h2><span>Revenue across the last 7 days</span></div><button className="range-button">This week <ChevronDown size={15} /></button></div><div className="chart-summary"><strong>{live ? currency(weekTotal) : "₹4,82,360"}</strong><Badge tone={live ? "blue" : "neutral"}>{live ? "Live" : "Demo"}</Badge></div><div className="bar-chart">{(live ? lastSeven.map((day) => ({ d: day.label, v: Math.max(4, Math.round(day.total / peak * 100)) })) : [{ d: "Mon", v: 44 }, { d: "Tue", v: 62 }, { d: "Wed", v: 52 }, { d: "Thu", v: 76 }, { d: "Fri", v: 68 }, { d: "Sat", v: 93 }, { d: "Sun", v: 81 }]).map((bar) => <div key={bar.d}><span style={{ height: `${bar.v}%` }}><i /></span><small>{bar.d}</small></div>)}</div></section><section className="panel tender-panel"><div className="panel-head"><div><h2>Today’s collection</h2><span>{live ? "Completed sales" : "Sample payment mix"}</span></div><MoreHorizontal size={19} /></div><div className="donut-row"><div className="donut"><span>{live ? currency(todayRevenue) : "₹86.4K"}<small>Total</small></span></div><div className="legend">{live ? <><p><i className="upi" /><span>Bills</span><strong>{todaySales.length}</strong></p><p><i className="cash" /><span>Paid</span><strong>{currency(todaySales.reduce((sum, sale) => sum + sale.paid_total, 0))}</strong></p><p><i className="card" /><span>Due</span><strong>{currency(todaySales.reduce((sum, sale) => sum + sale.balance_due, 0))}</strong></p></> : <><p><i className="upi" /><span>UPI</span><strong>52%</strong></p><p><i className="cash" /><span>Cash</span><strong>34%</strong></p><p><i className="card" /><span>Card</span><strong>14%</strong></p></>}</div></div></section><section className="panel low-stock-panel"><div className="panel-head"><div><h2>Low stock alert</h2><span>Reorder before stock-out</span></div><button>View all <ChevronRight size={15} /></button></div>{visibleStock.length ? visibleStock.map((product) => <div className="stock-row" key={product.id}><div><strong>{product.name}</strong><small>{product.category || "General"} · Stock {Math.round(product.stock)}</small></div><span className="stock-count"><strong>{product.stock}</strong><small>left</small></span><button>Reorder</button></div>) : <div className="panel-empty"><PackageCheck size={22} /><span>No low-stock products</span></div>}</section><section className="panel activity-panel"><div className="panel-head"><div><h2>Recent sales</h2><span>{live ? "Live counter records" : "Sample counter updates"}</span></div><span className="live-badge"><i /> {live ? "Live" : "Demo"}</span></div>{(live ? sales.slice(0, 4).map((sale) => [sale.invoice_no, sale.status, currency(sale.grand_total), new Date(sale.created_at).toLocaleString("en-IN")]) : [["NS-0183", "Cash sale", "₹1,248", "2 min ago"], ["NS-0182", "UPI sale", "₹864", "6 min ago"], ["NS-0181", "Card sale", "₹2,116", "18 min ago"]]).map((row) => <div className="activity-row" key={row[0]}><span className="activity-icon"><ReceiptIndianRupee size={16} /></span><div><strong>{row[0]} · {row[1]}</strong><small>{row[3]}</small></div><b>{row[2]}</b></div>)}</section></div></div>;
 }
 
 function ViewHeader({ eyebrow, title, description, actions }: { eyebrow: string; title: string; description: string; actions?: React.ReactNode }) { return <header className="view-header"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{actions && <div className="view-actions">{actions}</div>}</header>; }
@@ -814,7 +813,7 @@ function PurchasesView({ records, live, onAdd }: { records: PurchaseRecord[]; li
     { id: "demo-po-2", purchase_no: "PO-0091", supplier_invoice_no: "AAV-812", invoice_date: "2026-08-16", grand_total: 8940, paid_total: 8940, balance_due: 0, status: "received", suppliers: { name: "Aavin Cuddalore Depot" } },
     { id: "demo-po-3", purchase_no: "PO-0090", supplier_invoice_no: "MRM-305", invoice_date: "2026-08-15", grand_total: 42800, paid_total: 20000, balance_due: 22800, status: "part_received", suppliers: { name: "Murugan Rice Mandi" } },
   ] as PurchaseRecord[]);
-  return <div className="content-view"><ViewHeader eyebrow={live ? "LIVE PROCUREMENT" : "PROCUREMENT · DEMO"} title="Purchase management" description="Receive purchases and update product stock in one protected transaction" actions={<><button className="outline-button"><Upload size={17} /> Import bill</button><button className="primary-button" onClick={onAdd}><Plus size={17} /> Receive purchase</button></>} /><div className="mini-stats"><article><ShoppingBag size={20} /><span>This month<strong>{live ? currency(monthTotal) : "₹6,84,240"}</strong></span><Badge tone="blue">{live ? `${monthRecords.length} bills` : "Demo"}</Badge></article><article><Truck size={20} /><span>Received bills<strong>{live ? records.filter((record) => record.status === "received").length : 42}</strong></span><Badge tone="green">Stock posted</Badge></article><article><HandCoins size={20} /><span>Supplier due<strong>{live ? currency(dueTotal) : "₹1,48,600"}</strong></span><Badge tone={dueTotal > 0 ? "red" : "green"}>{live ? `${records.filter((record) => record.balance_due > 0).length} bills` : "Demo"}</Badge></article><article><RotateCcw size={20} /><span>Data source<strong>{live ? "Supabase" : "Preview"}</strong></span><Badge tone={live ? "green" : "neutral"}>{live ? "Live" : "Demo"}</Badge></article></div><div className="data-table purchase-table"><div className="table-row table-head-row"><span>Purchase bill</span><span>Supplier</span><span>Invoice date</span><span>Invoice ref.</span><span>Amount</span><span>Payment</span><span>Status</span><span /></div>{rows.map((record) => { const relation = record.suppliers; const supplierName = Array.isArray(relation) ? relation[0]?.name : relation?.name; return <div className="table-row" key={record.id}><span><strong>{record.purchase_no}</strong><small>Stock receipt recorded</small></span><span><strong>{supplierName || "Unregistered supplier"}</strong></span><span>{new Date(`${record.invoice_date}T00:00:00`).toLocaleDateString("en-IN")}</span><span>{record.supplier_invoice_no || "—"}</span><span><strong>{currency(record.grand_total)}</strong></span><span>{record.balance_due > 0 ? `${currency(record.balance_due)} due` : "Paid"}</span><span><Badge tone={record.status === "received" ? "green" : "orange"}>{record.status.replaceAll("_", " ")}</Badge></span><span><button className="icon-button"><MoreHorizontal size={17} /></button></span></div>; })}{live && !rows.length && <div className="table-empty"><ShoppingBag size={24} /><strong>No purchases yet</strong><span>Receive the first supplier bill to increase stock.</span></div>}</div></div>;
+  return <div className="content-view"><ViewHeader eyebrow={live ? "LIVE PROCUREMENT" : "PROCUREMENT · DEMO"} title="Purchase management" description="Receive purchases and update product stock in one protected transaction" actions={<><button className="outline-button"><Upload size={17} /> Import bill</button><button className="primary-button" onClick={onAdd}><Plus size={17} /> Receive purchase</button></>} /><div className="mini-stats"><article><ShoppingBag size={20} /><span>This month<strong>{live ? currency(monthTotal) : "₹6,84,240"}</strong></span><Badge tone="blue">{live ? `${monthRecords.length} bills` : "Demo"}</Badge></article><article><Truck size={20} /><span>Received bills<strong>{live ? records.filter((record) => record.status === "received").length : 42}</strong></span><Badge tone="green">Stock posted</Badge></article><article><HandCoins size={20} /><span>Supplier due<strong>{live ? currency(dueTotal) : "₹1,48,600"}</strong></span><Badge tone={dueTotal > 0 ? "red" : "green"}>{live ? `${records.filter((record) => record.balance_due > 0).length} bills` : "Demo"}</Badge></article><article><RotateCcw size={20} /><span>Data source<strong>{live ? "Firebase" : "Preview"}</strong></span><Badge tone={live ? "green" : "neutral"}>{live ? "Live" : "Demo"}</Badge></article></div><div className="data-table purchase-table"><div className="table-row table-head-row"><span>Purchase bill</span><span>Supplier</span><span>Invoice date</span><span>Invoice ref.</span><span>Amount</span><span>Payment</span><span>Status</span><span /></div>{rows.map((record) => { const relation = record.suppliers; const supplierName = Array.isArray(relation) ? relation[0]?.name : relation?.name; return <div className="table-row" key={record.id}><span><strong>{record.purchase_no}</strong><small>Stock receipt recorded</small></span><span><strong>{supplierName || "Unregistered supplier"}</strong></span><span>{new Date(`${record.invoice_date}T00:00:00`).toLocaleDateString("en-IN")}</span><span>{record.supplier_invoice_no || "—"}</span><span><strong>{currency(record.grand_total)}</strong></span><span>{record.balance_due > 0 ? `${currency(record.balance_due)} due` : "Paid"}</span><span><Badge tone={record.status === "received" ? "green" : "orange"}>{record.status.replaceAll("_", " ")}</Badge></span><span><button className="icon-button"><MoreHorizontal size={17} /></button></span></div>; })}{live && !rows.length && <div className="table-empty"><ShoppingBag size={24} /><strong>No purchases yet</strong><span>Receive the first supplier bill to increase stock.</span></div>}</div></div>;
 }
 
 function ReportsView({ sales, live, onExport }: { sales: SaleRecord[]; live: boolean; onExport: (from: string, to: string) => void }) {
@@ -845,7 +844,7 @@ function StaffView({ records, live, onInvite }: { records: StaffRecord[]; live: 
   const demoTeam = [{ user_id: "demo-1", display_name: "Arun Manager", role: "super_admin", active: true, created_at: new Date().toISOString() }, { user_id: "demo-2", display_name: "Kavitha R", role: "cashier", active: true, created_at: new Date().toISOString() }, { user_id: "demo-3", display_name: "Saravanan M", role: "inventory_manager", active: true, created_at: new Date().toISOString() }, { user_id: "demo-4", display_name: "Nivetha P", role: "accountant", active: true, created_at: new Date().toISOString() }];
   const team = live ? records : demoTeam;
   const permissionText: Record<string, string> = { super_admin: "Full access", admin: "Store administration", cashier: "Sales & returns", inventory_manager: "Stock & purchases", accountant: "Reports & accounts", staff: "Basic store access" };
-  return <div className="content-view"><ViewHeader eyebrow={`ACCESS CONTROL · ${live ? "LIVE" : "DEMO"}`} title="Staff & roles" description="Secure email invitations and database-enforced role permissions" actions={<><button className="outline-button"><ShieldCheck size={17} /> Manage roles</button><button className="primary-button" onClick={onInvite}><Plus size={17} /> Invite staff</button></>} /><div className="mini-stats"><article><Users size={20} /><span>Active staff<strong>{live ? team.filter((person) => person.active).length : "12 users"}</strong></span><Badge tone="green">{live ? "Store members" : "Demo"}</Badge></article><article><Gauge size={20} /><span>Super Admins<strong>{team.filter((person) => person.role === "super_admin").length}</strong></span><Badge tone="blue">Protected</Badge></article><article><WalletCards size={20} /><span>Cashiers<strong>{team.filter((person) => person.role === "cashier").length}</strong></span><Badge tone="neutral">Billing</Badge></article><article><ShieldCheck size={20} /><span>Security status<strong>RLS protected</strong></span><Badge tone="green">Active</Badge></article></div><div className="staff-grid">{team.map((person, index) => { const name = person.display_name || "Alsa Staff"; return <article className="staff-card" key={person.user_id}><div className={`staff-avatar avatar-${index % 4 + 1}`}>{initials(name)}</div><div><strong>{name}</strong><span>{roleLabel(person.role)}</span></div><Badge tone={person.active ? "green" : "neutral"}>{person.active ? "Active" : "Disabled"}</Badge><div className="staff-permission"><ShieldCheck size={16} /><span>{permissionText[person.role] || "Assigned permissions"}</span></div><div className="staff-foot"><span>Added · {new Date(person.created_at).toLocaleDateString("en-IN")}</span><button className="icon-button"><MoreHorizontal size={17} /></button></div></article>; })}{live && !team.length && <div className="directory-empty"><Users size={26} /><strong>No staff members yet</strong><span>Invite the first cashier or inventory manager.</span></div>}</div><section className="panel permissions-panel"><div className="panel-head"><div><h2>Role permissions</h2><span>Enforced by Supabase Row Level Security</span></div><button>Configure <ChevronRight size={15} /></button></div><div className="permission-row permission-head"><span>Role</span><span>Billing</span><span>Purchases</span><span>Inventory</span><span>Reports</span><span>Settings</span></div>{[["Super Admin", 1, 1, 1, 1, 1], ["Admin", 1, 1, 1, 1, 1], ["Cashier", 1, 0, 0, 0, 0], ["Inventory Manager", 0, 1, 1, 0, 0], ["Accountant", 0, 1, 0, 1, 0]].map((row) => <div className="permission-row" key={String(row[0])}><strong>{row[0]}</strong>{row.slice(1).map((allowed, index) => <span key={index} className={allowed ? "allowed" : "denied"}>{allowed ? <Check size={14} /> : <Minus size={14} />}</span>)}</div>)}</section></div>;
+  return <div className="content-view"><ViewHeader eyebrow={`ACCESS CONTROL · ${live ? "LIVE" : "DEMO"}`} title="Staff & roles" description="Secure email invitations and database-enforced role permissions" actions={<><button className="outline-button"><ShieldCheck size={17} /> Manage roles</button><button className="primary-button" onClick={onInvite}><Plus size={17} /> Invite staff</button></>} /><div className="mini-stats"><article><Users size={20} /><span>Active staff<strong>{live ? team.filter((person) => person.active).length : "12 users"}</strong></span><Badge tone="green">{live ? "Store members" : "Demo"}</Badge></article><article><Gauge size={20} /><span>Super Admins<strong>{team.filter((person) => person.role === "super_admin").length}</strong></span><Badge tone="blue">Protected</Badge></article><article><WalletCards size={20} /><span>Cashiers<strong>{team.filter((person) => person.role === "cashier").length}</strong></span><Badge tone="neutral">Billing</Badge></article><article><ShieldCheck size={20} /><span>Security status<strong>RLS protected</strong></span><Badge tone="green">Active</Badge></article></div><div className="staff-grid">{team.map((person, index) => { const name = person.display_name || "Alsa Staff"; return <article className="staff-card" key={person.user_id}><div className={`staff-avatar avatar-${index % 4 + 1}`}>{initials(name)}</div><div><strong>{name}</strong><span>{roleLabel(person.role)}</span></div><Badge tone={person.active ? "green" : "neutral"}>{person.active ? "Active" : "Disabled"}</Badge><div className="staff-permission"><ShieldCheck size={16} /><span>{permissionText[person.role] || "Assigned permissions"}</span></div><div className="staff-foot"><span>Added · {new Date(person.created_at).toLocaleDateString("en-IN")}</span><button className="icon-button"><MoreHorizontal size={17} /></button></div></article>; })}{live && !team.length && <div className="directory-empty"><Users size={26} /><strong>No staff members yet</strong><span>Invite the first cashier or inventory manager.</span></div>}</div><section className="panel permissions-panel"><div className="panel-head"><div><h2>Role permissions</h2><span>Enforced by Firestore Security Rules</span></div><button>Configure <ChevronRight size={15} /></button></div><div className="permission-row permission-head"><span>Role</span><span>Billing</span><span>Purchases</span><span>Inventory</span><span>Reports</span><span>Settings</span></div>{[["Super Admin", 1, 1, 1, 1, 1], ["Admin", 1, 1, 1, 1, 1], ["Cashier", 1, 0, 0, 0, 0], ["Inventory Manager", 0, 1, 1, 0, 0], ["Accountant", 0, 1, 0, 1, 0]].map((row) => <div className="permission-row" key={String(row[0])}><strong>{row[0]}</strong>{row.slice(1).map((allowed, index) => <span key={index} className={allowed ? "allowed" : "denied"}>{allowed ? <Check size={14} /> : <Minus size={14} />}</span>)}</div>)}</section></div>;
 }
 
 function SettingsView({ language, setLanguage, profile, onSave, storeId, onNotify }: { language: Language; setLanguage: (value: Language) => void; profile: StoreProfile; onSave: (data: FormData) => Promise<void>; storeId: string | null; onNotify: (message: string) => void }) {
@@ -864,10 +863,10 @@ function SettingsView({ language, setLanguage, profile, onSave, storeId, onNotif
 
   useEffect(() => {
     if (!storeId) return;
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     void (async () => {
-      const { data, error } = await supabase.from("store_settings").select("language,tax_inclusive,low_stock_alerts,expiry_alert_days,loyalty_enabled,loyalty_points_per_100,receipt_footer_en,receipt_footer_ta,invoice_template").eq("store_id", storeId).single();
+      const { data, error } = await firebase.from("store_settings").select("language,tax_inclusive,low_stock_alerts,expiry_alert_days,loyalty_enabled,loyalty_points_per_100,receipt_footer_en,receipt_footer_ta,invoice_template").eq("store_id", storeId).single();
       if (error || !data) return;
       setTaxInclusive(Boolean(data.tax_inclusive));
       setLowStockAlerts(Boolean(data.low_stock_alerts));
@@ -886,11 +885,11 @@ function SettingsView({ language, setLanguage, profile, onSave, storeId, onNotif
 
   const savePreferences = async () => {
     if (!storeId) { onNotify("Sign in to save settings"); return; }
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     setBusy(true);
     try {
-      const { error } = await supabase.from("store_settings").upsert({
+      const { error } = await firebase.from("store_settings").upsert({
         store_id: storeId,
         language,
         tax_inclusive: taxInclusive,
@@ -928,7 +927,7 @@ function SettingsView({ language, setLanguage, profile, onSave, storeId, onNotif
 
   return <div className="content-view settings-view"><ViewHeader eyebrow="STORE CONFIGURATION" title="Settings" description="Customize your Alsa Store workspace" /><div className="settings-layout"><aside>{menu.map(([key,label,Icon]) => <button type="button" className={tab === key ? "active" : ""} key={key} onClick={() => setTab(key)}><Icon size={18} />{label}<ChevronRight size={15} /></button>)}</aside>
 
-    {tab === "profile" && <form className="settings-card" key={`${profile.name}-${profile.invoice_prefix}`} onSubmit={submitProfile}><div className="settings-head"><div><h2>Store profile</h2><p>Saved to Supabase and shown on invoices and reports.</p></div><button type="button" className="outline-button" onClick={() => window.print()}><Printer size={16} /> Preview invoice</button></div><div className="profile-logo-row"><div className="large-brand-mark"><MoonStar size={28} /></div><div><strong>{profile.name} logo</strong><span>Brand identity for receipts and reports</span></div></div><div className="form-grid"><label><span>Business name</span><input name="name" defaultValue={profile.name} required /></label><label><span>GSTIN</span><input name="gstin" defaultValue={profile.gstin} /></label><label className="full"><span>Store address</span><input name="address" defaultValue={profile.address} placeholder="Street, city, Tamil Nadu, PIN" /></label><label><span>Phone</span><input name="phone" defaultValue={profile.phone} /></label><label><span>Email</span><input name="email" type="email" defaultValue={profile.email} /></label><label><span>Invoice prefix</span><input name="invoice_prefix" defaultValue={profile.invoice_prefix} maxLength={8} required /></label><label><span>Financial year</span><select defaultValue="2026"><option value="2026">2026–27</option></select></label></div><div className="settings-save"><span><ShieldCheck size={16} /> Store changes are protected by role policies</span><button type="submit" className="primary-button"><Check size={17} /> Save changes</button></div></form>}
+    {tab === "profile" && <form className="settings-card" key={`${profile.name}-${profile.invoice_prefix}`} onSubmit={submitProfile}><div className="settings-head"><div><h2>Store profile</h2><p>Saved to Firebase and shown on invoices and reports.</p></div><button type="button" className="outline-button" onClick={() => window.print()}><Printer size={16} /> Preview invoice</button></div><div className="profile-logo-row"><div className="large-brand-mark"><MoonStar size={28} /></div><div><strong>{profile.name} logo</strong><span>Brand identity for receipts and reports</span></div></div><div className="form-grid"><label><span>Business name</span><input name="name" defaultValue={profile.name} required /></label><label><span>GSTIN</span><input name="gstin" defaultValue={profile.gstin} /></label><label className="full"><span>Store address</span><input name="address" defaultValue={profile.address} placeholder="Street, city, Tamil Nadu, PIN" /></label><label><span>Phone</span><input name="phone" defaultValue={profile.phone} /></label><label><span>Email</span><input name="email" type="email" defaultValue={profile.email} /></label><label><span>Invoice prefix</span><input name="invoice_prefix" defaultValue={profile.invoice_prefix} maxLength={8} required /></label><label><span>Financial year</span><select defaultValue="2026"><option value="2026">2026–27</option></select></label></div><div className="settings-save"><span><ShieldCheck size={16} /> Store changes are protected by role policies</span><button type="submit" className="primary-button"><Check size={17} /> Save changes</button></div></form>}
 
     {tab === "billing" && <section className="settings-card"><div className="settings-head"><div><h2>Billing & tax</h2><p>Control tax display and customer loyalty defaults.</p></div></div><div className="settings-options">{switchRow("Tax inclusive pricing","Selling prices already include GST.",taxInclusive,setTaxInclusive)}{switchRow("Customer loyalty","Enable loyalty points for customers.",loyaltyEnabled,setLoyaltyEnabled)}<label className="settings-input-row"><span><strong>Loyalty points per ₹100</strong><small>Points credited for every ₹100 billed.</small></span><input type="number" min="0" step="0.1" value={loyaltyPoints} onChange={(e) => setLoyaltyPoints(Number(e.target.value))} /></label></div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
 
@@ -942,11 +941,11 @@ function SettingsView({ language, setLanguage, profile, onSave, storeId, onNotif
 
     {tab === "notifications" && <section className="settings-card"><div className="settings-head"><div><h2>Notifications</h2><p>Choose operational alerts for stock and expiry.</p></div></div><div className="settings-options">{switchRow("Low stock alerts","Show warnings when products need reorder.",lowStockAlerts,setLowStockAlerts)}<label className="settings-input-row"><span><strong>Expiry alert days</strong><small>Warn this many days before expiry.</small></span><input type="number" min="1" step="1" value={expiryAlertDays} onChange={(e) => setExpiryAlertDays(Number(e.target.value))} /></label></div><SettingsSave busy={busy} onSave={savePreferences} /></section>}
 
-    {tab === "backup" && <section className="settings-card"><div className="settings-head"><div><h2>Data & backup</h2><p>Export a local copy of store configuration.</p></div></div><div className="settings-backup-card"><ShieldCheck size={28} /><div><strong>Store settings backup</strong><span>Downloads your profile and configuration as a JSON file.</span></div><button type="button" className="primary-button" onClick={backupSettings}><Download size={17} /> Download backup</button></div><p className="settings-note">{loaded ? "Settings loaded from Supabase." : "Using current settings until cloud data loads."}</p></section>}
+    {tab === "backup" && <section className="settings-card"><div className="settings-head"><div><h2>Data & backup</h2><p>Export a local copy of store configuration.</p></div></div><div className="settings-backup-card"><ShieldCheck size={28} /><div><strong>Store settings backup</strong><span>Downloads your profile and configuration as a JSON file.</span></div><button type="button" className="primary-button" onClick={backupSettings}><Download size={17} /> Download backup</button></div><p className="settings-note">{loaded ? "Settings loaded from Firebase." : "Using current settings until cloud data loads."}</p></section>}
   </div></div>;
 }
 
 function SettingsSave({ busy, onSave }: { busy: boolean; onSave: () => Promise<void> }) {
-  return <div className="settings-save"><span><ShieldCheck size={16} /> Saved securely to Supabase</span><button type="button" className="primary-button" onClick={() => void onSave()} disabled={busy}>{busy ? <LoaderCircle size={17} className="spin" /> : <Check size={17} />}{busy ? "Saving…" : "Save settings"}</button></div>;
+  return <div className="settings-save"><span><ShieldCheck size={16} /> Saved securely to Firebase</span><button type="button" className="primary-button" onClick={() => void onSave()} disabled={busy}>{busy ? <LoaderCircle size={17} className="spin" /> : <Check size={17} />}{busy ? "Saving…" : "Save settings"}</button></div>;
 }
 

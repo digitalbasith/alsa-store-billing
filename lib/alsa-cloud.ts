@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { FirebaseCompatClient } from "@/lib/firebase";
 
 export type CatalogInput = {
   name: string;
@@ -25,14 +25,14 @@ function makeSku(item: CatalogInput, index: number): string {
  * No service key is used in the browser.
  */
 export async function syncCatalogToCloud(
-  supabase: SupabaseClient,
+  firebase: FirebaseCompatClient,
   storeId: string,
   items: CatalogInput[],
 ): Promise<number> {
   if (!items.length) return 0;
 
   const categoryNames = Array.from(new Set(items.map((item) => item.category.trim() || "General")));
-  const { data: categoryRows, error: categoryError } = await supabase
+  const { data: categoryRows, error: categoryError } = await firebase
     .from("categories")
     .upsert(
       categoryNames.map((name, index) => ({
@@ -48,7 +48,7 @@ export async function syncCatalogToCloud(
   if (categoryError) throw categoryError;
 
   const categoryIds = new Map(
-    (categoryRows ?? []).map((row) => [String(row.name_en), String(row.id)]),
+    (categoryRows ?? []).map((row: Record<string, unknown>) => [String(row.name_en), String(row.id)]),
   );
 
   const payload = items.map((item, index) => {
@@ -74,7 +74,7 @@ export async function syncCatalogToCloud(
     };
   });
 
-  const { data: productRows, error: productError } = await supabase
+  const { data: productRows, error: productError } = await firebase
     .from("products")
     .upsert(payload, { onConflict: "store_id,sku" })
     .select("id,sku");
@@ -82,7 +82,7 @@ export async function syncCatalogToCloud(
   if (productError) throw productError;
 
   const productBySku = new Map(
-    (productRows ?? []).map((row) => [String(row.sku), String(row.id)]),
+    (productRows ?? []).map((row: Record<string, unknown>) => [String(row.sku), String(row.id)]),
   );
   const barcodes = items
     .map((item, index) => ({
@@ -96,7 +96,7 @@ export async function syncCatalogToCloud(
     );
 
   if (barcodes.length) {
-    const { error: barcodeError } = await supabase
+    const { error: barcodeError } = await firebase
       .from("product_barcodes")
       .upsert(barcodes, { onConflict: "store_id,barcode" });
     if (barcodeError) throw barcodeError;

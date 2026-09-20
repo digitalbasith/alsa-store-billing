@@ -11,7 +11,7 @@ import {
   UserRoundCheck, Users, WalletCards, X, type LucideIcon,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getFirebaseBrowserClient } from "@/lib/firebase";
 
 export type EnterpriseModule = "sales" | "purchase" | "accounts" | "inventory" | "reports" | "maintenance" | "orders";
 type Language = "en" | "ta";
@@ -124,7 +124,7 @@ const featureMap: Record<EnterpriseModule, Feature[]> = {
     { title: "Active users", ta: "செயலில் உள்ள பயனர்கள்", description: "Review enabled staff accounts", taDescription: "செயலில் உள்ள ஊழியர் கணக்குகள்", icon: Users, action: "active_users" },
     { title: "Data backup", ta: "டேட்டா பேக்கப்", description: "Download a structured JSON backup", taDescription: "JSON பேக்கப் டவுன்லோட் செய்யவும்", icon: Download, action: "backup" },
     { title: "Bill verification", ta: "பில் சரிபார்ப்பு", description: "Verify a sale with audit history", taDescription: "ஆடிட் பதிவுடன் பில் சரிபார்ப்பு", icon: FileCheck2, action: "bill_verify" },
-    { title: "Change password", ta: "கடவுச்சொல் மாற்றம்", description: "Update your Supabase login password", taDescription: "உங்கள் லாகின் கடவுச்சொல்லை மாற்றவும்", icon: LockKeyhole, action: "change_password" },
+    { title: "Change password", ta: "கடவுச்சொல் மாற்றம்", description: "Update your Firebase login password", taDescription: "உங்கள் லாகின் கடவுச்சொல்லை மாற்றவும்", icon: LockKeyhole, action: "change_password" },
     { title: "Operating date", ta: "செயல்பாட்டு தேதி", description: "Set the working business date", taDescription: "பணிபுரியும் வணிக தேதியை அமைக்கவும்", icon: FileClock, action: "operating_date" },
     { title: "Bar codes", ta: "பார்கோடுகள்", description: "Print EAN-13 product labels", taDescription: "EAN-13 பொருள் லேபிள்களை பிரிண்ட் செய்யவும்", icon: Barcode, action: "barcode_batch" },
     { title: "Log off", ta: "வெளியேறு", description: "Securely sign out this device", taDescription: "இந்த சாதனத்திலிருந்து பாதுகாப்பாக வெளியேறவும்", icon: LockKeyhole, action: "logoff" },
@@ -164,9 +164,9 @@ export function EnterpriseSuite(props: Props) {
   useEffect(() => { setReportProfit(profitSummary); }, [profitSummary]);
   useEffect(() => {
     if (!storeId || !live) return;
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-    void supabase.rpc("profit_summary", {
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
+    void firebase.rpc("profit_summary", {
       p_store_id: storeId,
       p_from: `${fromDate}T00:00:00+05:30`,
       p_to: `${toDate}T23:59:59+05:30`,
@@ -184,13 +184,13 @@ export function EnterpriseSuite(props: Props) {
 
   const loadExtended = useCallback(async () => {
     if (!storeId || !live) { setAccounts([]); setReturns([]); setDocuments([]); return; }
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     const [accountResult, saleReturnResult, purchaseReturnResult, documentResult] = await Promise.all([
-      supabase.from("account_entries").select("id,account_no,entry_date,entry_type,party_type,amount,payment_method,reference_no,description,status,customers(name),suppliers(name)").eq("store_id", storeId).order("created_at", { ascending: false }).limit(500),
-      supabase.from("sale_returns").select("id,return_no,total_amount,reason,created_at,sales(invoice_no)").eq("store_id", storeId).order("created_at", { ascending: false }).limit(300),
-      supabase.from("purchase_returns").select("id,return_no,total_amount,reason,created_at,purchases(purchase_no)").eq("store_id", storeId).order("created_at", { ascending: false }).limit(300),
-      supabase.from("business_documents").select("id,document_no,document_type,document_date,source_type,source_id,status,amount,payload,created_at").eq("store_id", storeId).order("created_at", { ascending: false }).limit(500),
+      firebase.from("account_entries").select("id,account_no,entry_date,entry_type,party_type,amount,payment_method,reference_no,description,status,customers(name),suppliers(name)").eq("store_id", storeId).order("created_at", { ascending: false }).limit(500),
+      firebase.from("sale_returns").select("id,return_no,total_amount,reason,created_at,sales(invoice_no)").eq("store_id", storeId).order("created_at", { ascending: false }).limit(300),
+      firebase.from("purchase_returns").select("id,return_no,total_amount,reason,created_at,purchases(purchase_no)").eq("store_id", storeId).order("created_at", { ascending: false }).limit(300),
+      firebase.from("business_documents").select("id,document_no,document_type,document_date,source_type,source_id,status,amount,payload,created_at").eq("store_id", storeId).order("created_at", { ascending: false }).limit(500),
     ]);
     const firstError = [accountResult.error, saleReturnResult.error, purchaseReturnResult.error, documentResult.error].find(Boolean);
     if (firstError) throw firstError;
@@ -221,12 +221,12 @@ export function EnterpriseSuite(props: Props) {
     let active = true;
     const timer = window.setTimeout(() => {
       if (!sourceId || !storeId || !["sale_return", "purchase_return"].includes(action || "")) { if (active) setLineItems([]); return; }
-      const supabase = getSupabaseBrowserClient();
-      if (!supabase) return;
+      const firebase = getFirebaseBrowserClient();
+      if (!firebase) return;
       setLineBusy(true); setLineItems([]);
       const query = action === "sale_return"
-        ? supabase.from("sale_items").select("id,product_id,product_name,quantity,line_total").eq("store_id", storeId).eq("sale_id", sourceId)
-        : supabase.from("purchase_items").select("id,product_id,quantity,line_total,products(name_en)").eq("store_id", storeId).eq("purchase_id", sourceId);
+        ? firebase.from("sale_items").select("id,product_id,product_name,quantity,line_total").eq("store_id", storeId).eq("sale_id", sourceId)
+        : firebase.from("purchase_items").select("id,product_id,quantity,line_total,products(name_en)").eq("store_id", storeId).eq("purchase_id", sourceId);
       void (async () => {
         try {
           const { data, error: itemError } = await query;
@@ -265,12 +265,12 @@ export function EnterpriseSuite(props: Props) {
   const submitAction = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!action || !storeId) return;
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    const firebase = getFirebaseBrowserClient();
+    if (!firebase) return;
     const form = new FormData(event.currentTarget);
     const value = (name: string) => String(form.get(name) || "").trim();
     const number = (name: string) => safeNumber(value(name));
-    const rpc = async (name: string, args: Record<string, unknown>) => { const { data, error: rpcError } = await supabase.rpc(name, args); if (rpcError) throw rpcError; return data as Record<string, unknown> | null; };
+    const rpc = async (name: string, args: Record<string, unknown>) => { const { data, error: rpcError } = await firebase.rpc(name, args); if (rpcError) throw rpcError; return data as Record<string, unknown> | null; };
     setBusy(true); setError("");
     try {
       let result: Record<string, unknown> | null = null;
@@ -288,10 +288,10 @@ export function EnterpriseSuite(props: Props) {
       } else if (action === "repack") result = await rpc("repack_stock", { p_store_id: storeId, p_source_product_id: value("source_product_id"), p_target_product_id: value("target_product_id"), p_source_quantity: number("source_quantity"), p_target_quantity: number("target_quantity"), p_reason: value("reason") });
       else if (action === "merge_product") result = await rpc("merge_products", { p_store_id: storeId, p_source_product_id: value("source_product_id"), p_target_product_id: value("target_product_id"), p_reason: value("reason") });
       else if (action === "day_end") result = await rpc("close_business_day", { p_store_id: storeId, p_business_date: value("business_date"), p_opening_cash: number("opening_cash"), p_counted_cash: number("counted_cash"), p_notes: value("notes") || null });
-      else if (action === "change_password") { if (value("password") !== value("confirm_password")) throw new Error("Passwords do not match"); const { error: passwordError } = await supabase.auth.updateUser({ password: value("password") }); if (passwordError) throw passwordError; result = { status: "updated" }; }
-      else if (action === "operating_date") { const { error: dateError } = await supabase.from("store_settings").update({ operating_date: value("operating_date") }).eq("store_id", storeId); if (dateError) throw dateError; result = { status: "updated" }; }
-      else if (action === "bill_copy") { await printSale(supabase, storeId, value("sale_id")); result = { status: "printed" }; }
-      else if (action === "purchase_copy") { await printPurchase(supabase, storeId, value("purchase_id")); result = { status: "printed" }; }
+      else if (action === "change_password") { if (value("password") !== value("confirm_password")) throw new Error("Passwords do not match"); const { error: passwordError } = await firebase.auth.updateUser({ password: value("password") }); if (passwordError) throw passwordError; result = { status: "updated" }; }
+      else if (action === "operating_date") { const { error: dateError } = await firebase.from("store_settings").update({ operating_date: value("operating_date") }).eq("store_id", storeId); if (dateError) throw dateError; result = { status: "updated" }; }
+      else if (action === "bill_copy") { await printSale(firebase, storeId, value("sale_id")); result = { status: "printed" }; }
+      else if (action === "purchase_copy") { await printPurchase(firebase, storeId, value("purchase_id")); result = { status: "printed" }; }
       else if (action === "account_copy") { const entry = accounts.find((row) => row.id === value("entry_id")); if (!entry) throw new Error("Account entry not found"); printAccount(entry); result = { status: "printed" }; }
       else if (action === "barcode_batch") { const product = products.find((row) => row.id === value("product_id")); if (!product) throw new Error("Product not found"); printBarcodeLabels(product, Math.min(100, Math.max(1, number("copies")))); result = await rpc("save_business_document", { p_store_id: storeId, p_document_type: "barcode_batch", p_source_id: product.id, p_document_date: new Date().toISOString().slice(0, 10), p_amount: 0, p_payload: { barcode: product.barcode, copies: number("copies") } }); }
       else {
@@ -334,12 +334,12 @@ function ReportPanel({ report, selected, fromDate, toDate, setFromDate, setToDat
 
 function ActionModal({ action, busy, error, sourceId, setSourceId, lineBusy, lineItems, products, sales, purchases, customers, suppliers, staff, accounts, live, onClose, onSubmit }: { action: string; busy: boolean; error: string; sourceId: string; setSourceId: (value: string) => void; lineBusy: boolean; lineItems: LineItem[]; products: Product[]; sales: Sale[]; purchases: Purchase[]; customers: Customer[]; suppliers: Supplier[]; staff: Staff[]; accounts: AccountEntry[]; live: boolean; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void> }) {
   const heading = action.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-  if (action === "database_info") return <InfoModal title="Database information" icon={Database} onClose={onClose}><div className="suite-info-list"><span><Check size={16} /> Supabase cloud database connected</span><span><ShieldCheck size={16} /> Row Level Security enabled</span><span><Database size={16} /> Atomic sales, purchase and stock operations</span><span><FileCheck2 size={16} /> Audit trail active for protected changes</span></div></InfoModal>;
+  if (action === "database_info") return <InfoModal title="Database information" icon={Database} onClose={onClose}><div className="suite-info-list"><span><Check size={16} /> Firebase cloud database connected</span><span><ShieldCheck size={16} /> Row Level Security enabled</span><span><Database size={16} /> Atomic sales, purchase and stock operations</span><span><FileCheck2 size={16} /> Audit trail active for protected changes</span></div></InfoModal>;
   if (action === "active_users") return <InfoModal title="Active staff accounts" icon={Users} onClose={onClose}><div className="active-user-list">{staff.map((person) => <div key={person.user_id}><span>{(person.display_name || "Alsa Staff").slice(0, 2).toUpperCase()}</span><div><strong>{person.display_name || "Alsa Staff"}</strong><small>{person.role.replaceAll("_", " ")}</small></div><em>{person.active ? "Active" : "Disabled"}</em></div>)}</div></InfoModal>;
   const today = new Date().toISOString().slice(0, 10);
   const saleSelect = <FieldSelect name="sale_id" label="Sales bill" required value={sourceId} onChange={setSourceId} options={sales.filter((row) => row.status === "completed").map((row) => ({ value: row.id, label: `${row.invoice_no} · ${currency(row.grand_total)}` }))} />;
   const purchaseSelect = <FieldSelect name="purchase_id" label="Purchase document" required value={sourceId} onChange={setSourceId} options={purchases.filter((row) => row.status !== "cancelled").map((row) => ({ value: row.id, label: `${row.purchase_no} · ${currency(row.grand_total)}` }))} />;
-  return <div className="modal-layer" role="dialog" aria-modal="true" aria-label={heading}><button className="modal-backdrop" onClick={() => !busy && onClose()} /><section className="suite-modal"><header><div><span><ShieldCheck size={13} /> SECURE OPERATION</span><h2>{heading}</h2><p>{live ? "Changes are saved to Supabase with staff identity and audit history." : "Sign in is required for this operation."}</p></div><button type="button" onClick={onClose} disabled={busy}><X size={19} /></button></header><form onSubmit={(event) => void onSubmit(event)}>
+  return <div className="modal-layer" role="dialog" aria-modal="true" aria-label={heading}><button className="modal-backdrop" onClick={() => !busy && onClose()} /><section className="suite-modal"><header><div><span><ShieldCheck size={13} /> SECURE OPERATION</span><h2>{heading}</h2><p>{live ? "Changes are saved to Firebase with staff identity and audit history." : "Sign in is required for this operation."}</p></div><button type="button" onClick={onClose} disabled={busy}><X size={19} /></button></header><form onSubmit={(event) => void onSubmit(event)}>
     {action === "sale_return" && <>{saleSelect}<FieldSelect name="line_id" label="Return item" required disabled={lineBusy || !lineItems.length} options={lineItems.map((item) => ({ value: item.id, label: `${item.product_name} · Sold ${item.quantity}` }))} /><div className="suite-form-row"><FieldInput name="quantity" label="Return quantity" type="number" min="0.001" step="0.001" required /><FieldSelect name="payment_method" label="Refund method" required defaultValue="cash" options={paymentOptions} /></div><FieldSelect name="restock" label="Return to saleable stock?" required defaultValue="yes" options={[{ value: "yes", label: "Yes — restock" }, { value: "no", label: "No — damaged / unusable" }]} /><FieldInput name="reason" label="Return reason" required placeholder="Customer return / quality issue" /></>}
     {action === "sale_cancel" && <>{saleSelect}<FieldInput name="reason" label="Cancellation reason" required placeholder="Wrong bill / duplicate invoice" /><Warning>Stock and customer balance are reversed. Bills with an existing return cannot be cancelled.</Warning></>}
     {action === "sale_modify" && <>{saleSelect}<FieldInput name="notes" label="Corrected bill note" placeholder="Updated customer reference" /><FieldInput name="reason" label="Modification reason" required /><Warning>Financial line items stay immutable. Use Sales Return + new bill for quantity or price corrections.</Warning></>}
@@ -402,8 +402,8 @@ function downloadJson(filename: string, value: unknown) { downloadBlob(filename,
 function downloadBlob(filename: string, blob: Blob) { const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url); }
 function escapeHtml(value: unknown) { return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char] || char)); }
 function openPrint(title: string, body: string) { const popup = window.open("", "_blank", "width=900,height=760"); if (!popup) throw new Error("Allow pop-ups to print this document"); popup.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>body{font:14px Arial;color:#14221b;padding:32px}h1{margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{padding:9px;border-bottom:1px solid #ddd;text-align:left}.total{font-size:20px;font-weight:800;text-align:right;margin-top:20px}.muted{color:#65736b}.label{display:inline-block;border:1px solid #bbb;padding:12px;margin:6px;width:210px;text-align:center;break-inside:avoid}.label svg{width:190px;height:76px}</style></head><body>${body}<script>window.onload=()=>window.print()</script></body></html>`); popup.document.close(); }
-async function printSale(supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>, storeId: string, saleId: string) { const [saleResult, itemsResult] = await Promise.all([supabase.from("sales").select("invoice_no,created_at,status,subtotal,discount_total,tax_total,grand_total,paid_total,balance_due").eq("store_id", storeId).eq("id", saleId).single(), supabase.from("sale_items").select("product_name,quantity,unit_price,gst_rate,line_total").eq("store_id", storeId).eq("sale_id", saleId)]); if (saleResult.error) throw saleResult.error; if (itemsResult.error) throw itemsResult.error; const sale = saleResult.data; const rows = (itemsResult.data || []).map((row) => `<tr><td>${escapeHtml(row.product_name)}</td><td>${row.quantity}</td><td>${currency(Number(row.unit_price))}</td><td>${row.gst_rate}%</td><td>${currency(Number(row.line_total))}</td></tr>`).join(""); openPrint(String(sale.invoice_no), `<h1>Alsa Store</h1><p class="muted">Bill copy · ${escapeHtml(sale.invoice_no)} · ${formatDate(String(sale.created_at))} · ${escapeHtml(sale.status)}</p><table><thead><tr><th>Product</th><th>Qty</th><th>Rate</th><th>GST</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p class="total">Total ${currency(Number(sale.grand_total))}</p>`); }
-async function printPurchase(supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>, storeId: string, purchaseId: string) { const [head, items] = await Promise.all([supabase.from("purchases").select("purchase_no,supplier_invoice_no,invoice_date,status,grand_total").eq("store_id", storeId).eq("id", purchaseId).single(), supabase.from("purchase_items").select("quantity,unit_cost,gst_rate,line_total,products(name_en)").eq("store_id", storeId).eq("purchase_id", purchaseId)]); if (head.error) throw head.error; if (items.error) throw items.error; const rows = (items.data || []).map((row) => `<tr><td>${escapeHtml(Array.isArray(row.products) ? row.products[0]?.name_en : (row.products as { name_en?: string } | null)?.name_en)}</td><td>${row.quantity}</td><td>${currency(Number(row.unit_cost))}</td><td>${row.gst_rate}%</td><td>${currency(Number(row.line_total))}</td></tr>`).join(""); openPrint(String(head.data.purchase_no), `<h1>Alsa Store</h1><p class="muted">Purchase copy · ${escapeHtml(head.data.purchase_no)} · Supplier ref ${escapeHtml(head.data.supplier_invoice_no || "—")}</p><table><thead><tr><th>Product</th><th>Qty</th><th>Cost</th><th>GST</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p class="total">Total ${currency(Number(head.data.grand_total))}</p>`); }
+async function printSale(firebase: NonNullable<ReturnType<typeof getFirebaseBrowserClient>>, storeId: string, saleId: string) { const [saleResult, itemsResult] = await Promise.all([firebase.from("sales").select("invoice_no,created_at,status,subtotal,discount_total,tax_total,grand_total,paid_total,balance_due").eq("store_id", storeId).eq("id", saleId).single(), firebase.from("sale_items").select("product_name,quantity,unit_price,gst_rate,line_total").eq("store_id", storeId).eq("sale_id", saleId)]); if (saleResult.error) throw saleResult.error; if (itemsResult.error) throw itemsResult.error; const sale = saleResult.data; const rows = (itemsResult.data || []).map((row) => `<tr><td>${escapeHtml(row.product_name)}</td><td>${row.quantity}</td><td>${currency(Number(row.unit_price))}</td><td>${row.gst_rate}%</td><td>${currency(Number(row.line_total))}</td></tr>`).join(""); openPrint(String(sale.invoice_no), `<h1>Alsa Store</h1><p class="muted">Bill copy · ${escapeHtml(sale.invoice_no)} · ${formatDate(String(sale.created_at))} · ${escapeHtml(sale.status)}</p><table><thead><tr><th>Product</th><th>Qty</th><th>Rate</th><th>GST</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p class="total">Total ${currency(Number(sale.grand_total))}</p>`); }
+async function printPurchase(firebase: NonNullable<ReturnType<typeof getFirebaseBrowserClient>>, storeId: string, purchaseId: string) { const [head, items] = await Promise.all([firebase.from("purchases").select("purchase_no,supplier_invoice_no,invoice_date,status,grand_total").eq("store_id", storeId).eq("id", purchaseId).single(), firebase.from("purchase_items").select("quantity,unit_cost,gst_rate,line_total,products(name_en)").eq("store_id", storeId).eq("purchase_id", purchaseId)]); if (head.error) throw head.error; if (items.error) throw items.error; const rows = (items.data || []).map((row) => `<tr><td>${escapeHtml(Array.isArray(row.products) ? row.products[0]?.name_en : (row.products as { name_en?: string } | null)?.name_en)}</td><td>${row.quantity}</td><td>${currency(Number(row.unit_cost))}</td><td>${row.gst_rate}%</td><td>${currency(Number(row.line_total))}</td></tr>`).join(""); openPrint(String(head.data.purchase_no), `<h1>Alsa Store</h1><p class="muted">Purchase copy · ${escapeHtml(head.data.purchase_no)} · Supplier ref ${escapeHtml(head.data.supplier_invoice_no || "—")}</p><table><thead><tr><th>Product</th><th>Qty</th><th>Cost</th><th>GST</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p class="total">Total ${currency(Number(head.data.grand_total))}</p>`); }
 function printAccount(entry: AccountEntry) { openPrint(entry.account_no, `<h1>Alsa Store</h1><p class="muted">Account document copy</p><table><tbody><tr><th>Document</th><td>${escapeHtml(entry.account_no)}</td></tr><tr><th>Date</th><td>${escapeHtml(entry.entry_date)}</td></tr><tr><th>Type</th><td>${escapeHtml(entry.entry_type)}</td></tr><tr><th>Method</th><td>${escapeHtml(entry.payment_method)}</td></tr><tr><th>Status</th><td>${escapeHtml(entry.status)}</td></tr></tbody></table><p class="total">${currency(entry.amount)}</p>`); }
 
 function ean13Svg(raw: string) { let code = raw.replace(/\D/g, ""); if (code.length === 12) { const sum = code.split("").reduce((total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3), 0); code += String((10 - (sum % 10)) % 10); } if (code.length !== 13) return `<div style="font:700 20px monospace;padding:22px">${escapeHtml(raw)}</div>`; const L = ["0001101","0011001","0010011","0111101","0100011","0110001","0101111","0111011","0110111","0001011"]; const G = ["0100111","0110011","0011011","0100001","0011101","0111001","0000101","0010001","0001001","0010111"]; const R = ["1110010","1100110","1101100","1000010","1011100","1001110","1010000","1000100","1001000","1110100"]; const P = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"]; let bits = "101"; const parity = P[Number(code[0])]; for (let i = 1; i <= 6; i++) bits += (parity[i - 1] === "L" ? L : G)[Number(code[i])]; bits += "01010"; for (let i = 7; i <= 12; i++) bits += R[Number(code[i])]; bits += "101"; const bars = bits.split("").map((bit, index) => bit === "1" ? `<rect x="${index * 2}" y="0" width="2" height="64"/>` : "").join(""); return `<svg viewBox="0 0 190 76" role="img"><g fill="#111">${bars}</g><text x="95" y="75" text-anchor="middle" font-family="monospace" font-size="11">${code}</text></svg>`; }

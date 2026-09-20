@@ -40,3 +40,6 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+# generated from lib/firebase.ts.gz before Next.js builds
+lib/firebase.ts
