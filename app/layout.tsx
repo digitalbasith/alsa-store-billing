@@ -3,6 +3,7 @@ import "./globals.css";
 import "./firebase.css";
 import { PwaRegister } from "./pwa-register";
 import { ForgotPasswordHelper } from "./forgot-password-helper";
+import { ProductPurchaseRateHelper } from "./product-purchase-rate-helper";
 
 export const metadata: Metadata = {
   title: "Alsa Store Billing",
@@ -24,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased"><PwaRegister /><ForgotPasswordHelper />{children}</body>
+      <body className="antialiased"><PwaRegister /><ForgotPasswordHelper /><ProductPurchaseRateHelper />{children}</body>
     </html>
   );
 }
