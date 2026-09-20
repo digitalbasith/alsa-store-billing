@@ -1,15 +1,15 @@
 {
   "name": "alsa-store-billing",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "node scripts/materialize-firebase.mjs && next dev",
-    "build": "node scripts/materialize-firebase.mjs && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
-    "lint": "node scripts/materialize-firebase.mjs && eslint . --ignore-pattern .next --ignore-pattern dist"
+    "lint": "eslint . --ignore-pattern .next --ignore-pattern dist"
   },
   "dependencies": {
     "firebase": "12.19.0",
