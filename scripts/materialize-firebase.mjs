@@ -5,7 +5,7 @@ import path from "node:path";
 const root = process.cwd();
 const partsDir = path.join(root, "lib", "firebase.parts");
 const targetPath = path.join(root, "lib", "firebase.ts");
-const expectedSha256 = "113ee1a1ad2e82c2bb78f51170c31c71e3b2468a54acb2ef77bbc272480e233c";
+const expectedSha256 = "4fe793b9e21aa966cb97159ad05951ae7bd09ebe2bd4c35069c1ec6581fa7243";
 
 const names = (await readdir(partsDir))
   .filter((name) => name.endsWith(".b64"))
