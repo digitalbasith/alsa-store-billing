@@ -17,7 +17,6 @@ import {
   getFirestore,
   increment,
   onSnapshot,
-  orderBy,
   query,
   runTransaction,
   serverTimestamp,
@@ -46,7 +45,7 @@ type Sale = {
   invoiceNo: string;
   total: number;
   itemCount: number;
-  createdAt?: unknown;
+  createdAtMs: number;
 };
 
 const firebaseConfig = {
@@ -59,7 +58,7 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-ZGP48F4W4X",
 };
 
-function getFirebase() {
+function getFirebase(): { auth: ReturnType<typeof getAuth>; db: Firestore } {
   const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   return { auth: getAuth(app), db: getFirestore(app) };
 }
@@ -69,6 +68,13 @@ const money = (value: number) =>
 
 function numberValue(form: FormData, key: string) {
   return Number(String(form.get(key) || "0")) || 0;
+}
+
+function timestampMs(value: unknown) {
+  if (value && typeof value === "object" && "toMillis" in value && typeof (value as { toMillis: () => number }).toMillis === "function") {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  return 0;
 }
 
 export default function AlsaStoreBilling() {
@@ -95,17 +101,8 @@ export default function AlsaStoreBilling() {
       return;
     }
 
-    const productQuery = query(
-      collection(db, "products"),
-      where("ownerId", "==", user.uid),
-      where("active", "==", true),
-      orderBy("name"),
-    );
-    const salesQuery = query(
-      collection(db, "sales"),
-      where("ownerId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-    );
+    const productQuery = query(collection(db, "products"), where("ownerId", "==", user.uid));
+    const salesQuery = query(collection(db, "sales"), where("ownerId", "==", user.uid));
 
     const stopProducts = onSnapshot(productQuery, (snapshot) => {
       setProducts(snapshot.docs.map((item) => {
@@ -121,20 +118,20 @@ export default function AlsaStoreBilling() {
           gst: Number(data.gst || 0),
           active: data.active !== false,
         };
-      }));
+      }).filter((product) => product.active).sort((a, b) => a.name.localeCompare(b.name)));
     });
 
     const stopSales = onSnapshot(salesQuery, (snapshot) => {
-      setSales(snapshot.docs.slice(0, 10).map((item) => {
+      setSales(snapshot.docs.map((item) => {
         const data = item.data();
         return {
           id: item.id,
           invoiceNo: String(data.invoiceNo || item.id),
           total: Number(data.total || 0),
           itemCount: Number(data.itemCount || 0),
-          createdAt: data.createdAt,
+          createdAtMs: timestampMs(data.createdAt),
         };
-      }));
+      }).sort((a, b) => b.createdAtMs - a.createdAtMs).slice(0, 10));
     });
 
     return () => {
