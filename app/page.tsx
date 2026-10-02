@@ -63,8 +63,8 @@ const productsSeed: Product[] = [
 ];
 
 const copy = {
-  en: { dashboard: "Overview", billing: "Billing counter", sales: "Sales control", products: "Products", inventory: "Stock control", purchases: "Purchases", accounts: "Accounts", reports: "Reports", orders: "Order management", maintenance: "Maintenance", customers: "Customers", suppliers: "Suppliers", staff: "Staff & roles", settings: "Settings", search: "Search product, barcode or shortcut...", catalog: "Product catalogue", cart: "Current bill", customer: "Walk-in customer", checkout: "Proceed to payment", subtotal: "Subtotal", discount: "Discount rate", savings: "Customer savings", tax: "GST included", total: "Amount payable", hold: "Hold bill", clear: "Clear", all: "All items" },
-  ta: { dashboard: "முகப்பு", billing: "பில்லிங் கவுன்டர்", sales: "விற்பனை கட்டுப்பாடு", products: "பொருட்கள்", inventory: "ஸ்டாக் கட்டுப்பாடு", purchases: "கொள்முதல்", accounts: "கணக்குகள்", reports: "அறிக்கைகள்", orders: "ஆர்டர் நிர்வாகம்", maintenance: "பராமரிப்பு", customers: "வாடிக்கையாளர்கள்", suppliers: "சப்ளையர்கள்", staff: "ஊழியர்கள் & பொறுப்புகள்", settings: "அமைப்புகள்", search: "பொருள் அல்லது பார்கோடு தேடுங்கள்...", catalog: "பொருள் பட்டியல்", cart: "தற்போதைய பில்", customer: "நேரடி வாடிக்கையாளர்", checkout: "பணம் செலுத்த", subtotal: "மொத்தம்", discount: "தள்ளுபடி விகிதம்", savings: "வாடிக்கையாளர் சேமிப்பு", tax: "GST உட்பட", total: "செலுத்த வேண்டியது", hold: "பில்லை நிறுத்து", clear: "அழி", all: "அனைத்தும்" },
+  en: { dashboard: "Overview", billing: "Billing counter", sales: "Sales control", products: "Products", inventory: "Stock control", purchases: "Purchases", accounts: "Accounts", reports: "Reports", orders: "Order management", maintenance: "Maintenance", customers: "Customers", suppliers: "Suppliers", staff: "Staff & roles", settings: "Settings", search: "Search product, barcode or shortcut...", catalog: "Product catalogue", cart: "Current bill", customer: "Walk-in customer", checkout: "Proceed to payment", subtotal: "Subtotal", discount: "Discount amount", savings: "Customer savings", tax: "GST included", total: "Amount payable", hold: "Hold bill", clear: "Clear", all: "All items" },
+  ta: { dashboard: "முகப்பு", billing: "பில்லிங் கவுன்டர்", sales: "விற்பனை கட்டுப்பாடு", products: "பொருட்கள்", inventory: "ஸ்டாக் கட்டுப்பாடு", purchases: "கொள்முதல்", accounts: "கணக்குகள்", reports: "அறிக்கைகள்", orders: "ஆர்டர் நிர்வாகம்", maintenance: "பராமரிப்பு", customers: "வாடிக்கையாளர்கள்", suppliers: "சப்ளையர்கள்", staff: "ஊழியர்கள் & பொறுப்புகள்", settings: "அமைப்புகள்", search: "பொருள் அல்லது பார்கோடு தேடுங்கள்...", catalog: "பொருள் பட்டியல்", cart: "தற்போதைய பில்", customer: "நேரடி வாடிக்கையாளர்", checkout: "பணம் செலுத்த", subtotal: "மொத்தம்", discount: "தள்ளுபடி தொகை", savings: "வாடிக்கையாளர் சேமிப்பு", tax: "GST உட்பட", total: "செலுத்த வேண்டியது", hold: "பில்லை நிறுத்து", clear: "அழி", all: "அனைத்தும்" },
 };
 
 const navTop: Array<{ id: Section; icon: LucideIcon }> = [
@@ -146,7 +146,7 @@ export default function Home() {
   const [saleError, setSaleError] = useState("");
   const [billingCustomerName, setBillingCustomerName] = useState("");
   const [billingCustomerPhone, setBillingCustomerPhone] = useState("");
-  const [discountRate, setDiscountRate] = useState("");
+  const [discountValue, setDiscountValue] = useState("");
   const [lastReceipt, setLastReceipt] = useState<{ invoice: string; total: number; items: CartItem[]; customerName: string; customerPhone: string } | null>(null);
   const [undoSale, setUndoSale] = useState<{ id: string; invoice: string; seconds: number } | null>(null);
   const [undoBusy, setUndoBusy] = useState(false);
@@ -316,9 +316,9 @@ export default function Home() {
   const mrpTotal = cart.reduce((sum, item) => sum + item.mrp * item.quantity, 0);
   const savings = mrpTotal - subtotal;
   const tax = cart.reduce((sum, item) => sum + (item.price * item.quantity * item.gst) / (100 + item.gst), 0);
-  const discountPercent = Math.min(100, Math.max(0, Number(discountRate) || 0));
-  const discountAmount = Number(((subtotal * discountPercent) / 100).toFixed(2));
-  const roundedTotal = Number(Math.max(0, subtotal - discountAmount).toFixed(2));
+  const discountAmount = Number(Math.min(subtotal, Math.max(0, Number(discountValue) || 0)).toFixed(2));
+  const discountedSubtotal = Math.max(0, subtotal - discountAmount);
+  const roundedTotal = Number(discountedSubtotal.toFixed(2));
   const change = Math.max(0, Number(cashReceived || 0) - roundedTotal);
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2500); };
@@ -398,7 +398,7 @@ export default function Home() {
   const completeSale = async () => {
     if (!cart.length || saleBusy) return;
     if (cloudStatus !== "live" || !storeId) {
-      setPaymentOpen(false); setCashReceived(""); setCart([]); setDiscountRate(""); setInvoiceLabel("AS-DEMO-0184");
+      setPaymentOpen(false); setCashReceived(""); setCart([]); setDiscountValue(""); setInvoiceLabel("AS-DEMO-0184");
       notify(`Demo sale completed via ${paymentMode} — sign in to save it`); return;
     }
     const firebase = getFirebaseBrowserClient();
@@ -420,7 +420,7 @@ export default function Home() {
       const receiptItems = [...cart];
       setLastReceipt({ invoice: completedInvoice, total: roundedTotal, items: receiptItems, customerName: billingCustomerName.trim(), customerPhone: billingCustomerPhone.trim() });
       if (result?.sale_id) setUndoSale({ id: result.sale_id, invoice: completedInvoice, seconds: 30 });
-      setPaymentOpen(false); setCashReceived(""); setCart([]); setDiscountRate(""); setInvoiceLabel(completedInvoice);
+      setPaymentOpen(false); setCashReceived(""); setCart([]); setDiscountValue(""); setInvoiceLabel(completedInvoice);
       setBillingCustomerName(""); setBillingCustomerPhone("");
       await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
       notify(`Sale ${completedInvoice} saved — Undo available for 30 seconds`);
@@ -680,8 +680,8 @@ export default function Home() {
           </div>
           <div className="billing-customer"><label><span>Customer name <small>(optional)</small></span><input value={billingCustomerName} onChange={(e) => setBillingCustomerName(e.target.value)} placeholder="Walk-in customer" /></label><label><span>Phone number <small>(optional)</small></span><input inputMode="tel" value={billingCustomerPhone} onChange={(e) => setBillingCustomerPhone(e.target.value.replace(/[^0-9+ -]/g, ""))} placeholder="+91" /></label></div>
           <div className="cart-items">{cart.length ? cart.map((item) => <article className="cart-item no-icon" key={item.id}><div className="cart-product-copy"><strong>{language === "ta" && item.tamil ? item.tamil : item.name}</strong><span>{currency(item.price)} × {item.quantity}</span><div className="qty-control"><button onClick={() => updateQuantity(item.id, -1)}><Minus size={13} /></button><strong>{item.quantity}</strong><button onClick={() => updateQuantity(item.id, 1)}><Plus size={13} /></button></div></div><div className="cart-line-price"><strong>{currency(item.price * item.quantity)}</strong><button onClick={() => setCart((current) => current.filter((row) => row.id !== item.id))}><Trash2 size={15} /></button></div></article>) : <div className="empty-cart"><ShoppingBasket size={36} /><strong>Your bill is empty</strong><span>Search and tap a product to begin.</span></div>}</div>
-          <div className="totals"><div><span>{t.subtotal}</span><strong>{currency(subtotal)}</strong></div><div className="discount-total"><span>{t.discount}</span><label className="discount-rate-control"><input inputMode="decimal" value={discountRate} onChange={(e) => { const next = e.target.value; if (next === "") { setDiscountRate(""); return; } const value = Math.min(100, Math.max(0, Number(next))); if (Number.isFinite(value)) setDiscountRate(String(value)); }} placeholder="0" aria-label="Discount rate percent" /><b>%</b></label><strong>− {currency(discountAmount)}</strong></div><div className="savings"><span>{t.savings}</span><strong>− {currency(savings)}</strong></div><div><span>{t.tax}</span><strong>{currency(tax)}</strong></div><div className="grand-total"><span>{t.total}<small>Rounded off {currency(roundedTotal - subtotal)}</small></span><strong>{currency(roundedTotal)}</strong></div></div>
-          <div className="cart-actions"><button className="secondary-action danger" onClick={() => { setCart([]); setDiscountRate(""); }}><Trash2 size={17} />{t.clear}</button></div>
+          <div className="totals"><div><span>{t.subtotal}</span><strong>{currency(subtotal)}</strong></div><div className="discount-total"><span>{t.discount}</span><label className="discount-rate-control"><b>₹</b><input inputMode="decimal" value={discountValue} onChange={(e) => { const next = e.target.value.replace(/[^0-9.]/g, ""); if (next === "") { setDiscountValue(""); return; } const value = Math.min(subtotal, Math.max(0, Number(next))); if (Number.isFinite(value)) setDiscountValue(String(value)); }} placeholder="0" aria-label="Discount amount" /></label><strong>− {currency(discountAmount)}</strong></div><div className="savings"><span>{t.savings}</span><strong>− {currency(savings)}</strong></div><div><span>{t.tax}</span><strong>{currency(tax)}</strong></div><div className="grand-total"><span>{t.total}<small>Rounded off {currency(roundedTotal - discountedSubtotal)}</small></span><strong>{currency(roundedTotal)}</strong></div></div>
+          <div className="cart-actions"><button className="secondary-action danger" onClick={() => { setCart([]); setDiscountValue(""); }}><Trash2 size={17} />{t.clear}</button></div>
           <button className="checkout-button" onClick={() => cart.length && setPaymentOpen(true)} disabled={!cart.length}><span><CreditCard size={19} />{t.checkout}</span><strong>{currency(roundedTotal)} <ChevronRight size={18} /></strong></button>{lastReceipt && <button className="secondary-action print-last" onClick={printLastReceipt}><Printer size={17} /> Print last receipt · {lastReceipt.invoice}</button>}
         </aside>
       </div>}
