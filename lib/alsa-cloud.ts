@@ -12,6 +12,7 @@ export type CatalogInput = {
   barcode: string;
   icon?: string;
   tint?: string;
+  supplierId?: string;
 };
 
 function makeSku(item: CatalogInput, index: number): string {
@@ -59,6 +60,7 @@ export async function syncCatalogToCloud(
     return {
       store_id: storeId,
       category_id: categoryIds.get(category) ?? null,
+      supplier_id: item.supplierId?.trim() || null,
       sku: makeSku(item, index),
       name_en: item.name.trim(),
       name_ta: item.tamil?.trim() || null,
