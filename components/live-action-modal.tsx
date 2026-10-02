@@ -50,7 +50,7 @@ export function englishToTamil(value: string) {
   return value.split(/(\s+|[-/])/).map(part => /^[A-Za-z]+$/.test(part) ? transliterateWord(part) : part).join("");
 }
 
-export type ActionMode = "product" | "customer" | "supplier" | "purchase" | "staff";
+export type ActionMode = "product" | "customer" | "supplier" | "purchase" | "expense" | "staff";
 
 type ProductOption = { id: string; name: string; price: number; gst: number };
 type SupplierOption = { id: string; name: string };
@@ -60,6 +60,7 @@ const titles: Record<ActionMode, { eyebrow: string; title: string; description: 
   customer: { eyebrow: "CUSTOMER CRM", title: "Add customer", description: "Save contact, loyalty and credit identity." },
   supplier: { eyebrow: "VENDOR MASTER", title: "Add supplier", description: "Create a supplier for purchase and payable tracking." },
   purchase: { eyebrow: "STOCK RECEIPT", title: "Receive purchase", description: "Purchase document and stock update happen atomically." },
+  expense: { eyebrow: "EXPENSE REGISTER", title: "Add expense", description: "Record a store expense with payment and reference details." },
   staff: { eyebrow: "ACCESS CONTROL", title: "Invite staff", description: "Send a secure email invitation with the selected role." },
 };
 
@@ -97,6 +98,7 @@ export function LiveActionModal({
         {mode === "product" && <>
           <div className="action-form-row"><label><span>Product name</span><div><Package size={17} /><input name="name" value={productName} onChange={(e) => { const next=e.target.value; setProductName(next); if(!tamilManual) setTamilName(englishToTamil(next)); }} placeholder="Aavin Milk" required /></div></label><label><span>Tamil name (auto / editable)</span><div><Package size={17} /><input name="tamil" value={tamilName} onChange={(e) => { setTamilManual(true); setTamilName(e.target.value); }} placeholder="Automatically transliterated" /></div></label></div>
           <div className="action-form-row"><Field name="barcode" label="Barcode (optional)" icon={Barcode} placeholder="Optional" /><Field name="category" label="Category (optional)" icon={Boxes} placeholder="Optional — General" /></div>
+          <label><span>Supplier <small>(optional)</small></span><div><Truck size={17} /><select name="supplier_id" defaultValue=""><option value="">No supplier selected</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></div></label>
           <div className="action-form-row"><Field name="price" label="Sale price" icon={IndianRupee} type="number" min="0" step="0.01" required /><Field name="mrp" label="MRP" icon={IndianRupee} type="number" min="0" step="0.01" required /></div>
           <div className="action-form-row"><Field name="stock" label="Opening stock (count)" icon={Boxes} type="number" min="0" step="1" defaultValue="0" required /><Field name="gst" label="GST % (optional)" icon={FileSpreadsheet} type="number" min="0" max="100" step="0.01" placeholder="Optional — defaults to 0" /></div>
         </>}
@@ -111,6 +113,12 @@ export function LiveActionModal({
           <label><span>Product</span><div><Package size={17} /><select name="product_id" required defaultValue=""><option value="" disabled>Select a product</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></div></label>
           <div className="action-form-row three"><Field name="quantity" label="Quantity" icon={Boxes} type="number" min="0.001" step="0.001" required /><Field name="unit_cost" label="Unit cost" icon={IndianRupee} type="number" min="0" step="0.01" required /><Field name="gst_rate" label="GST %" icon={FileSpreadsheet} type="number" min="0" max="100" step="0.01" defaultValue="0" required /></div>
           <div className="action-form-row"><Field name="payment_amount" label="Paid now" icon={IndianRupee} type="number" min="0" step="0.01" defaultValue="0" required /><Field name="batch_no" label="Batch number" icon={Barcode} placeholder="Optional" /></div>
+        </>}
+        {mode === "expense" && <>
+          <div className="action-form-row"><Field name="expense_date" label="Expense date" icon={FileSpreadsheet} type="date" required /><label><span>Category</span><div><ReceiptIndianRupee size={17} /><select name="category" defaultValue="General"><option>General</option><option>Rent</option><option>Electricity</option><option>Salary</option><option>Transport</option><option>Maintenance</option><option>Office</option><option>Other</option></select></div></label></div>
+          <div className="action-form-row"><Field name="amount" label="Amount" icon={IndianRupee} type="number" min="0.01" step="0.01" required /><label><span>Payment method</span><div><IndianRupee size={17} /><select name="payment_method" defaultValue="cash"><option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank">Bank transfer</option><option value="credit">Credit</option></select></div></label></div>
+          <label><span>Supplier <small>(optional)</small></span><div><Truck size={17} /><select name="supplier_id" defaultValue=""><option value="">No supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></div></label>
+          <Field name="note" label="Note / reference (optional)" icon={FileSpreadsheet} placeholder="EB bill, shop rent, transport..." />
         </>}
         {mode === "staff" && <>
           <Field name="display_name" label="Staff name" icon={UserRound} placeholder="Kavitha R" required />
