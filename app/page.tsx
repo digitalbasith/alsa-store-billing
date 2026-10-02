@@ -19,7 +19,7 @@ import { syncCatalogToCloud, type CatalogInput } from "@/lib/alsa-cloud";
 import { getFirebaseBrowserClient } from "@/lib/firebase";
 
 type Language = "en" | "ta";
-type Section = "dashboard" | "billing" | "sales" | "products" | "inventory" | "purchases" | "accounts" | "reports" | "orders" | "maintenance" | "customers" | "suppliers" | "staff" | "settings";
+type Section = "dashboard" | "billing" | "sales" | "products" | "inventory" | "purchases" | "accounts" | "expenses" | "reports" | "orders" | "maintenance" | "customers" | "suppliers" | "staff" | "settings";
 type Product = { id: string; name: string; tamil: string; category: string; icon: string; unit: string; price: number; mrp: number; stock: number; gst: number; barcode: string; tint: string };
 type CartItem = Product & { quantity: number };
 type CloudStatus = "checking" | "demo" | "onboarding" | "live";
@@ -44,6 +44,7 @@ type PurchaseRecord = { id: string; purchase_no: string; supplier_invoice_no: st
 type CustomerRecord = { id: string; name: string; phone: string | null; email: string | null; loyalty_points: number; lifetime_value: number; outstanding_balance: number; visit_count: number };
 type SupplierRecord = { id: string; name: string; phone: string | null; email: string | null; opening_balance: number; credit_days: number; active: boolean };
 type StaffRecord = { user_id: string; display_name: string | null; role: string; active: boolean; created_at: string };
+type ExpenseRecord = { id: string; expense_date: string; category: string; amount: number; payment_method: string; note: string | null; supplier_id: string | null; status: string; created_at: string };
 type StoreProfile = { name: string; gstin: string; phone: string; email: string; address: string; invoice_prefix: string };
 type ProfitSummary = { sales: number; cost: number; gross_profit: number; margin_percent: number };
 
@@ -63,14 +64,14 @@ const productsSeed: Product[] = [
 ];
 
 const copy = {
-  en: { dashboard: "Overview", billing: "Billing counter", sales: "Sales control", products: "Products", inventory: "Stock control", purchases: "Purchases", accounts: "Accounts", reports: "Reports", orders: "Order management", maintenance: "Maintenance", customers: "Customers", suppliers: "Suppliers", staff: "Staff & roles", settings: "Settings", search: "Search product, barcode or shortcut...", catalog: "Product catalogue", cart: "Current bill", customer: "Walk-in customer", checkout: "Proceed to payment", subtotal: "Subtotal", discount: "Discount amount", savings: "Customer savings", tax: "GST included", total: "Amount payable", hold: "Hold bill", clear: "Clear", all: "All items" },
-  ta: { dashboard: "முகப்பு", billing: "பில்லிங் கவுன்டர்", sales: "விற்பனை கட்டுப்பாடு", products: "பொருட்கள்", inventory: "ஸ்டாக் கட்டுப்பாடு", purchases: "கொள்முதல்", accounts: "கணக்குகள்", reports: "அறிக்கைகள்", orders: "ஆர்டர் நிர்வாகம்", maintenance: "பராமரிப்பு", customers: "வாடிக்கையாளர்கள்", suppliers: "சப்ளையர்கள்", staff: "ஊழியர்கள் & பொறுப்புகள்", settings: "அமைப்புகள்", search: "பொருள் அல்லது பார்கோடு தேடுங்கள்...", catalog: "பொருள் பட்டியல்", cart: "தற்போதைய பில்", customer: "நேரடி வாடிக்கையாளர்", checkout: "பணம் செலுத்த", subtotal: "மொத்தம்", discount: "தள்ளுபடி தொகை", savings: "வாடிக்கையாளர் சேமிப்பு", tax: "GST உட்பட", total: "செலுத்த வேண்டியது", hold: "பில்லை நிறுத்து", clear: "அழி", all: "அனைத்தும்" },
+  en: { dashboard: "Overview", billing: "Billing counter", sales: "Sales control", products: "Products", inventory: "Stock control", purchases: "Purchases", accounts: "Accounts", expenses: "Expenses", reports: "Reports", orders: "Order management", maintenance: "Maintenance", customers: "Customers", suppliers: "Suppliers", staff: "Staff & roles", settings: "Settings", search: "Search product, barcode or shortcut...", catalog: "Product catalogue", cart: "Current bill", customer: "Walk-in customer", checkout: "Proceed to payment", subtotal: "Subtotal", discount: "Discount amount", savings: "Customer savings", tax: "GST included", total: "Amount payable", hold: "Hold bill", clear: "Clear", all: "All items" },
+  ta: { dashboard: "முகப்பு", billing: "பில்லிங் கவுன்டர்", sales: "விற்பனை கட்டுப்பாடு", products: "பொருட்கள்", inventory: "ஸ்டாக் கட்டுப்பாடு", purchases: "கொள்முதல்", accounts: "கணக்குகள்", expenses: "செலவுகள்", reports: "அறிக்கைகள்", orders: "ஆர்டர் நிர்வாகம்", maintenance: "பராமரிப்பு", customers: "வாடிக்கையாளர்கள்", suppliers: "சப்ளையர்கள்", staff: "ஊழியர்கள் & பொறுப்புகள்", settings: "அமைப்புகள்", search: "பொருள் அல்லது பார்கோடு தேடுங்கள்...", catalog: "பொருள் பட்டியல்", cart: "தற்போதைய பில்", customer: "நேரடி வாடிக்கையாளர்", checkout: "பணம் செலுத்த", subtotal: "மொத்தம்", discount: "தள்ளுபடி தொகை", savings: "வாடிக்கையாளர் சேமிப்பு", tax: "GST உட்பட", total: "செலுத்த வேண்டியது", hold: "பில்லை நிறுத்து", clear: "அழி", all: "அனைத்தும்" },
 };
 
 const navTop: Array<{ id: Section; icon: LucideIcon }> = [
   { id: "dashboard", icon: LayoutDashboard }, { id: "billing", icon: ReceiptIndianRupee },
   { id: "sales", icon: RotateCcw }, { id: "purchases", icon: ShoppingBag },
-  { id: "accounts", icon: HandCoins }, { id: "inventory", icon: Boxes },
+  { id: "accounts", icon: HandCoins }, { id: "expenses", icon: WalletCards }, { id: "inventory", icon: Boxes },
   { id: "products", icon: Package }, { id: "reports", icon: ChartNoAxesCombined },
   { id: "orders", icon: ClipboardList }, { id: "maintenance", icon: Settings },
 ];
@@ -157,6 +158,7 @@ export default function Home() {
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
   const [staff, setStaff] = useState<StaffRecord[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [storeProfile, setStoreProfile] = useState<StoreProfile>({ name: "Alsa Store", gstin: "", phone: "", email: "", address: "", invoice_prefix: "AS" });
   const [actionMode, setActionMode] = useState<ActionMode | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -184,20 +186,22 @@ export default function Home() {
   const loadWorkspaceRecords = useCallback(async (activeStoreId: string) => {
     const firebase = getFirebaseBrowserClient();
     if (!firebase) return;
-    const [salesResult, purchasesResult, customersResult, suppliersResult, staffResult, storeResult] = await Promise.all([
+    const [salesResult, purchasesResult, customersResult, suppliersResult, expensesResult, staffResult, storeResult] = await Promise.all([
       firebase.from("sales").select("id,invoice_no,grand_total,tax_total,discount_total,paid_total,balance_due,item_count,status,created_at").eq("store_id", activeStoreId).order("created_at", { ascending: false }).limit(1000),
       firebase.from("purchases").select("id,purchase_no,supplier_invoice_no,invoice_date,subtotal,tax_total,grand_total,paid_total,balance_due,status,suppliers(name)").eq("store_id", activeStoreId).order("invoice_date", { ascending: false }).limit(200),
       firebase.from("customers").select("id,name,phone,email,loyalty_points,lifetime_value,outstanding_balance,visit_count").eq("store_id", activeStoreId).eq("active", true).order("name"),
       firebase.from("suppliers").select("id,name,phone,email,opening_balance,credit_days,active").eq("store_id", activeStoreId).eq("active", true).order("name"),
+      firebase.from("expenses").select("id,expense_date,category,amount,payment_method,note,supplier_id,status,created_at").eq("store_id", activeStoreId).order("expense_date", { ascending: false }).limit(500),
       firebase.from("store_members").select("user_id,display_name,role,active,created_at").eq("store_id", activeStoreId).order("created_at"),
       firebase.from("stores").select("name,gstin,phone,email,address,invoice_prefix").eq("id", activeStoreId).single(),
     ]);
-    const firstError = [salesResult.error, purchasesResult.error, customersResult.error, suppliersResult.error, staffResult.error, storeResult.error].find(Boolean);
+    const firstError = [salesResult.error, purchasesResult.error, customersResult.error, suppliersResult.error, expensesResult.error, staffResult.error, storeResult.error].find(Boolean);
     if (firstError) throw firstError;
     setSales(((salesResult.data ?? []) as unknown as SaleRecord[]).map((row) => ({ ...row, grand_total: Number(row.grand_total), tax_total: Number(row.tax_total), discount_total: Number(row.discount_total), paid_total: Number(row.paid_total), balance_due: Number(row.balance_due), item_count: Number(row.item_count) })));
     setPurchases(((purchasesResult.data ?? []) as unknown as PurchaseRecord[]).map((row) => ({ ...row, subtotal: Number(row.subtotal || 0), tax_total: Number(row.tax_total || 0), grand_total: Number(row.grand_total), paid_total: Number(row.paid_total), balance_due: Number(row.balance_due) })));
     setCustomers(((customersResult.data ?? []) as unknown as CustomerRecord[]).map((row) => ({ ...row, loyalty_points: Number(row.loyalty_points), lifetime_value: Number(row.lifetime_value), outstanding_balance: Number(row.outstanding_balance), visit_count: Number(row.visit_count) })));
     setSuppliers(((suppliersResult.data ?? []) as unknown as SupplierRecord[]).map((row) => ({ ...row, opening_balance: Number(row.opening_balance), credit_days: Number(row.credit_days) })));
+    setExpenses(((expensesResult.data ?? []) as unknown as ExpenseRecord[]).map((row) => ({ ...row, amount: Number(row.amount || 0) })));
     setStaff((staffResult.data ?? []) as unknown as StaffRecord[]);
     const profile = storeResult.data as { name: string; gstin: string | null; phone: string | null; email: string | null; address: Record<string, unknown> | string | null; invoice_prefix: string };
     const address = typeof profile.address === "string" ? profile.address : profile.address ? Object.values(profile.address).filter(Boolean).join(", ") : "";
@@ -295,7 +299,7 @@ export default function Home() {
     });
     const { data: listener } = firebase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        setCloudStatus("demo"); setStoreId(null); setProducts(productsSeed); setCart([]); setUserEmail(""); setSales([]); setPurchases([]); setCustomers([]); setSuppliers([]); setStaff([]);
+        setCloudStatus("demo"); setStoreId(null); setProducts(productsSeed); setCart([]); setUserEmail(""); setSales([]); setPurchases([]); setCustomers([]); setSuppliers([]); setExpenses([]); setStaff([]);
       } else if (session?.user && (event === "SIGNED_IN" || event === "USER_UPDATED")) {
         window.setTimeout(() => loadCloudWorkspace(session.user.id, session.user.email || "").catch((workspaceError) => {
           setCloudError(workspaceError instanceof Error ? workspaceError.message : "Cloud workspace could not be loaded");
@@ -553,7 +557,7 @@ export default function Home() {
           name: value("name"), tamil: value("tamil"), barcode: value("barcode"),
           category: value("category"), unit: "unit", price: numberValue("price"),
           mrp: numberValue("mrp"), stock: Math.max(0, Math.round(numberValue("stock"))), gst: numberValue("gst"),
-          icon: "", tint: "blue",
+          icon: "", tint: "blue", supplierId: value("supplier_id") || undefined,
         }]);
         await loadProductsFromCloud(storeId);
       } else if (mode === "customer" || mode === "supplier") {
@@ -585,6 +589,19 @@ export default function Home() {
         const receipt = data as { purchase_no?: string } | null;
         notify(`Purchase ${receipt?.purchase_no || "saved"} received into stock`);
         await Promise.all([loadProductsFromCloud(storeId), loadWorkspaceRecords(storeId)]);
+      } else if (mode === "expense") {
+        const { error } = await firebase.from("expenses").insert({
+          store_id: storeId,
+          expense_date: value("expense_date") || new Date().toISOString().slice(0, 10),
+          category: value("category") || "General",
+          amount: Math.max(0, numberValue("amount")),
+          payment_method: value("payment_method") || "cash",
+          supplier_id: value("supplier_id") || null,
+          note: value("note") || null,
+          status: "posted",
+        });
+        if (error) throw error;
+        await loadWorkspaceRecords(storeId);
       } else if (mode === "staff") {
         const { data, error } = await firebase.functions.invoke("invite-staff", { body: {
           store_id: storeId,
@@ -708,6 +725,7 @@ export default function Home() {
       />}
       {section === "customers" && <DirectoryView kind="customer" records={customers} live={cloudStatus === "live"} onAdd={() => openLiveAction("customer")} />}
       {section === "suppliers" && <DirectoryView kind="supplier" records={suppliers} live={cloudStatus === "live"} onAdd={() => openLiveAction("supplier")} />}
+      {section === "expenses" && <ExpenseView expenses={expenses} suppliers={suppliers} live={cloudStatus === "live"} onAdd={() => openLiveAction("expense")} />}
       {section === "staff" && <StaffView records={staff} live={cloudStatus === "live"} onInvite={() => openLiveAction("staff")} />}
       {section === "settings" && <SettingsView language={language} setLanguage={setLanguage} profile={storeProfile} onSave={saveStoreProfile} storeId={storeId} onNotify={notify} />}
     </section>
@@ -836,6 +854,29 @@ function ReportsView({ sales, live, onExport }: { sales: SaleRecord[]; live: boo
 }
 
 /* eslint-enable @typescript-eslint/no-unused-vars */
+function ExpenseView({ expenses, suppliers, live, onAdd }: { expenses: ExpenseRecord[]; suppliers: SupplierRecord[]; live: boolean; onAdd: () => void }) {
+  const supplierName = (id: string | null) => suppliers.find((supplier) => supplier.id === id)?.name || "";
+  const rows = live ? expenses : [];
+  const total = rows.reduce((sum, expense) => sum + expense.amount, 0);
+  const monthKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
+  const monthTotal = rows.filter((expense) => String(expense.expense_date || "").slice(0, 7) === monthKey).reduce((sum, expense) => sum + expense.amount, 0);
+  return <div className="content-view expense-view">
+    <ViewHeader eyebrow={`EXPENSE REGISTER · ${live ? "LIVE" : "DEMO"}`} title="Expenses" description="Track rent, electricity, salary, transport and other store expenses." actions={<button className="primary-button" onClick={onAdd}><Plus size={17} /> Add expense</button>} />
+    <div className="mini-stats">
+      <article><WalletCards size={20} /><span>This month<strong>{currency(monthTotal)}</strong></span><Badge tone="orange">Expenses</Badge></article>
+      <article><ReceiptIndianRupee size={20} /><span>Total recorded<strong>{currency(total)}</strong></span><Badge tone="neutral">{rows.length} entries</Badge></article>
+    </div>
+    <section className="panel expense-panel">
+      <div className="panel-head"><div><h2>Expense register</h2><span>Datewise store expenses</span></div><button className="primary-button" onClick={onAdd}><Plus size={16} /> Add expense</button></div>
+      <div className="expense-table">
+        <div className="expense-row expense-head"><span>Date</span><span>Category</span><span>Payment</span><span>Supplier / note</span><span>Amount</span></div>
+        {rows.map((expense) => <div className="expense-row" key={expense.id}><span>{new Date(`${expense.expense_date}T00:00:00`).toLocaleDateString("en-IN")}</span><strong>{expense.category}</strong><span className="expense-method">{expense.payment_method.toUpperCase()}</span><span>{supplierName(expense.supplier_id) || expense.note || "—"}</span><strong className="expense-amount">{currency(expense.amount)}</strong></div>)}
+        {!rows.length && <div className="directory-empty"><WalletCards size={28} /><strong>No expenses recorded</strong><span>Use Add expense to create the first entry.</span></div>}
+      </div>
+    </section>
+  </div>;
+}
+
 function DirectoryView({ kind, records, live, onAdd }: { kind: "customer" | "supplier"; records: CustomerRecord[] | SupplierRecord[]; live: boolean; onAdd: () => void }) {
   const supplier = kind === "supplier";
   const demoRows = supplier ? [["Sri Lakshmi Distributors", "FMCG supplier", "+91 98420 66142", "₹82,400 due", "Demo"], ["Aavin Cuddalore Depot", "Dairy supplier", "+91 94432 10884", "₹12,860 due", "Demo"], ["Murugan Rice Mandi", "Rice & staples", "+91 97888 42016", "₹42,800 due", "Demo"]] : [["R. Kavitha", "Gold member · 42 visits", "+91 98424 55218", "₹18,420 spent", "640 points"], ["S. Karthikeyan", "Member · 28 visits", "+91 97872 41190", "₹12,860 spent", "380 points"], ["Priya Stores", "Business · 16 visits", "+91 94433 08612", "₹42,800 spent", "₹4,200 due"]];
