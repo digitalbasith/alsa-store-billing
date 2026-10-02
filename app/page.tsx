@@ -290,7 +290,7 @@ export default function Home() {
         catch (workspaceError) { setCloudError(workspaceError instanceof Error ? workspaceError.message : "Cloud workspace could not be loaded"); setCloudStatus("demo"); }
       } else {
         setCloudStatus("demo");
-        setAuthOpen(true);
+        setAuthOpen(false);
       }
     });
     const { data: listener } = firebase.auth.onAuthStateChange((event, session) => {
